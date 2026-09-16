@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct Place: Identifiable {
-    let id = UUID()
+    let id: String
     let name: String
     let location: String
     let capacity: String
@@ -10,7 +10,7 @@ struct Place: Identifiable {
 }
 
 struct Show: Identifiable {
-    let id = UUID()
+    let id: String
     let title: String
     let date: String
     let location: String
@@ -20,16 +20,16 @@ struct Show: Identifiable {
 }
 
 let samplePlaces = [
-    Place(name: "한울교회", location: "경기도 남양주시", capacity: "최대 150명", rating: "4.8", artwork: 0),
-    Place(name: "망원동 카페 웨이브", location: "서울 마포구", capacity: "최대 50명", rating: "4.6", artwork: 1),
-    Place(name: "이음 문화센터", location: "서울 성동구", capacity: "최대 80명", rating: "4.9", artwork: 2)
+    Place(id: "place-hanul", name: "한울교회", location: "경기도 남양주시", capacity: "최대 150명", rating: "4.8", artwork: 0),
+    Place(id: "place-wave", name: "망원동 카페 웨이브", location: "서울 마포구", capacity: "최대 50명", rating: "4.6", artwork: 1),
+    Place(id: "place-eeum", name: "이음 문화센터", location: "서울 성동구", capacity: "최대 80명", rating: "4.9", artwork: 2)
 ]
 
 let sampleShows = [
-    Show(title: "술탄 오브 더 디스코", date: "10/24–10/25", location: "경기도 시흥 시흥교회", category: "Music", progress: 0.82, artwork: 0),
-    Show(title: "Pocket Music Fest", date: "10.03 (토) · 18:00", location: "한울교회 · 30석", category: "Music", progress: 0.64, artwork: 1),
-    Show(title: "Oasis concert", date: "12/02–12/15", location: "망원동 카페 웨이브", category: "Lo-fi", progress: 0.47, artwork: 2),
-    Show(title: "Indie Band Bon", date: "11/24–12/01", location: "서울 성동구", category: "Band", progress: 0.71, artwork: 3)
+    Show(id: "show-sultan", title: "술탄 오브 더 디스코", date: "10/24–10/25", location: "경기도 시흥 시흥교회", category: "Music", progress: 0.82, artwork: 0),
+    Show(id: "show-pocket", title: "Pocket Music Fest", date: "10.03 (토) · 18:00", location: "한울교회 · 30석", category: "Music", progress: 0.64, artwork: 1),
+    Show(id: "show-oasis", title: "Oasis concert", date: "12/02–12/15", location: "망원동 카페 웨이브", category: "Lo-fi", progress: 0.47, artwork: 2),
+    Show(id: "show-indie", title: "Indie Band Bon", date: "11/24–12/01", location: "서울 성동구", category: "Band", progress: 0.71, artwork: 3)
 ]
 
 struct ContentView: View {
@@ -126,7 +126,7 @@ struct HomeView: View {
 
 struct PlaceCard: View {
     let place: Place
-    var body: some View { NavigationLink { PlaceListView() } label: { VStack(alignment: .leading, spacing: 3) { PlaceArtwork(index: place.artwork).frame(width: 104, height: 72).clipShape(RoundedRectangle(cornerRadius: 9)); Text(place.name).font(.caption2.weight(.bold)).lineLimit(1); Text(place.location).font(.system(size: 8)).foregroundStyle(.secondary); RatingView(value: place.rating) }.frame(width: 104, alignment: .leading).padding(5).background(.white, in: RoundedRectangle(cornerRadius: 12)) }.buttonStyle(.plain) }
+    var body: some View { NavigationLink { PlaceDetailView(place: place) } label: { VStack(alignment: .leading, spacing: 3) { PlaceArtwork(index: place.artwork).frame(width: 104, height: 72).clipShape(RoundedRectangle(cornerRadius: 9)); Text(place.name).font(.caption2.weight(.bold)).lineLimit(1); Text(place.location).font(.system(size: 8)).foregroundStyle(.secondary); RatingView(value: place.rating) }.frame(width: 104, alignment: .leading).padding(5).background(.white, in: RoundedRectangle(cornerRadius: 12)) }.buttonStyle(.plain) }
 }
 
 struct ShowsView: View {
@@ -212,4 +212,4 @@ struct PlaceRow: View { let place: Place; var body: some View { HStack { PlaceAr
 struct PlaceListView: View { var body: some View { List(samplePlaces) { place in NavigationLink { PlaceDetailView(place: place) } label: { PlaceRow(place: place).listRowInsets(EdgeInsets(top: 6, leading: 0, bottom: 6, trailing: 0)) }.listRowSeparator(.hidden) }.listStyle(.plain).navigationTitle("공간 찾기") } }
 struct PlaceDetailView: View { let place: Place; @State private var showCreate = false; var body: some View { ScrollView { VStack(alignment: .leading, spacing: 18) { PlaceArtwork(index: place.artwork).frame(height: 260); Text(place.name).font(.largeTitle.bold()); Text("\(place.location) · \(place.capacity)").foregroundStyle(.secondary); RatingView(value: place.rating); Button("이 공간에서 공연 만들기") { showCreate = true }.buttonStyle(.borderedProminent).tint(CrocTheme.orange) }.padding(.bottom) }.ignoresSafeArea(edges: .top).sheet(isPresented: $showCreate) { CreateShowView(defaultPlace: place.name) } } }
 struct ShowDetailView: View { let show: Show; @EnvironmentObject private var model: AppModel; var isJoined: Bool { model.joinedShowIDs.contains(show.id) }; var body: some View { ScrollView { VStack(alignment: .leading, spacing: 16) { PlaceArtwork(index: show.artwork).frame(height: 270); VStack(alignment: .leading, spacing: 9) { Text(show.category).font(.caption).foregroundStyle(CrocTheme.orange); Text(show.title).font(.largeTitle.bold()); Text("\(show.date)\n\(show.location)").foregroundStyle(.secondary); VStack(alignment: .leading, spacing: 8) { HStack { Text("펀딩 달성률").font(.subheadline.bold()); Spacer(); Text("\(Int(show.progress * 100))%").font(.title3.bold()).foregroundStyle(CrocTheme.orange) }; ProgressView(value: show.progress).tint(CrocTheme.orange); Text("목표 달성 시 공연이 확정돼요 · 목표 30명").font(.caption2).foregroundStyle(.secondary) }.padding(14).background(CrocTheme.canvas, in: RoundedRectangle(cornerRadius: 14)); Text("이런 공연이에요").font(.headline); Text("좋아하는 아티스트의 무대를 우리 동네에서 만나요. 관객의 사전 티켓 구매로 공연이 만들어집니다.").font(.subheadline).foregroundStyle(.secondary).lineSpacing(4); Button(isJoined ? "참여 완료! 티켓을 확인하세요" : "티켓 펀딩 참여하기 · 15,000원") { model.join(show) }.buttonStyle(.borderedProminent).tint(isJoined ? .green : CrocTheme.orange).frame(maxWidth: .infinity) }.padding(.horizontal, 16) }.padding(.bottom) }.navigationTitle("공연 상세").navigationBarTitleDisplayMode(.inline) } }
-struct CreateShowView: View { @Environment(\.dismiss) private var dismiss; @EnvironmentObject private var model: AppModel; var defaultPlace: String = "한울교회"; @State private var title = ""; @State private var place = "한울교회"; @State private var price = "15,000"; @State private var audience = "30"; var body: some View { NavigationStack { Form { Section("공연 정보") { TextField("공연 제목", text: $title); Picker("공연할 공간", selection: $place) { Text("한울교회").tag("한울교회"); Text("망원동 카페 웨이브").tag("망원동 카페 웨이브"); Text("이음 문화센터").tag("이음 문화센터") }; TextField("티켓 가격", text: $price).keyboardType(.numberPad); TextField("목표 관객 수", text: $audience).keyboardType(.numberPad) }; Section { Button("공연 등록하기") { model.add(show: Show(title: title, date: "새로 등록한 공연", location: place, category: "Music", progress: 0, artwork: 0)); dismiss() }.disabled(title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty) } }.navigationTitle("새 공연").onAppear { place = defaultPlace }.toolbar { ToolbarItem(placement: .cancellationAction) { Button("닫기") { dismiss() } } } } } }
+struct CreateShowView: View { @Environment(\.dismiss) private var dismiss; @EnvironmentObject private var model: AppModel; var defaultPlace: String = "한울교회"; @State private var title = ""; @State private var place = "한울교회"; @State private var price = "15,000"; @State private var audience = "30"; var body: some View { NavigationStack { Form { Section("공연 정보") { TextField("공연 제목", text: $title); Picker("공연할 공간", selection: $place) { Text("한울교회").tag("한울교회"); Text("망원동 카페 웨이브").tag("망원동 카페 웨이브"); Text("이음 문화센터").tag("이음 문화센터") }; TextField("티켓 가격", text: $price).keyboardType(.numberPad); TextField("목표 관객 수", text: $audience).keyboardType(.numberPad) }; Section { Button("공연 등록하기") { model.add(show: Show(id: "created-\(UUID().uuidString)", title: title, date: "새로 등록한 공연", location: place, category: "Music", progress: 0, artwork: 0)); dismiss() }.disabled(title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty) } }.navigationTitle("새 공연").onAppear { place = defaultPlace }.toolbar { ToolbarItem(placement: .cancellationAction) { Button("닫기") { dismiss() } } } } } }

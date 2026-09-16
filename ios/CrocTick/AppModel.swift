@@ -3,7 +3,7 @@ import SwiftUI
 @MainActor
 final class AppModel: ObservableObject {
     @Published var userName = "이채호"
-    @Published var joinedShowIDs: Set<UUID> = []
+    @Published var joinedShowIDs: Set<String> = []
     @Published var createdShows: [Show] = []
     @Published var selectedPlace: Place?
 
