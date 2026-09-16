@@ -2,10 +2,16 @@ import SwiftUI
 
 @MainActor
 final class AppModel: ObservableObject {
-    @Published var userName = "이채호"
+    @Published var userName: String {
+        didSet { UserDefaults.standard.set(userName, forKey: "crocTick.userName") }
+    }
     @Published var joinedShowIDs: Set<String> = []
     @Published var createdShows: [Show] = []
     @Published var selectedPlace: Place?
+
+    init() {
+        userName = UserDefaults.standard.string(forKey: "crocTick.userName") ?? "이채호"
+    }
 
     var allShows: [Show] { createdShows + sampleShows }
 
