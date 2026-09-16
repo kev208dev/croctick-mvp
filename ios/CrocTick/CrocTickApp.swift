@@ -2,7 +2,9 @@ import SwiftUI
 
 @main
 struct CrocTickApp: App {
+    @StateObject private var model = AppModel()
+
     var body: some Scene {
-        WindowGroup { ContentView() }
+        WindowGroup { ContentView().environmentObject(model) }
     }
 }

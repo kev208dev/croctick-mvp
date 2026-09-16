@@ -7,7 +7,9 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		17DD4240A473F66057D1C365 /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3FAAD4A5158EEAF1AFCEAF1 /* AppModel.swift */; };
 		1F24217D2C8A2CDAED921C40 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A4EA1E5D6810A8F8BFE8427 /* ContentView.swift */; };
+		A66E56C02D2B49681CB81379 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 8FC8795AD922596FB118C525 /* Assets.xcassets */; };
 		C651BFA43CAAEC4E433E6B70 /* CrocTickApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 465A184CA764483668BED122 /* CrocTickApp.swift */; };
 		CF753BA2B39AD3C488ABCB58 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = A814AA6F27B9A6F975C973C4 /* Theme.swift */; };
 /* End PBXBuildFile section */
@@ -17,6 +19,8 @@
 		465A184CA764483668BED122 /* CrocTickApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CrocTickApp.swift; sourceTree = "<group>"; };
 		5D7A07C87C5E5453BFE1755D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		7A4EA1E5D6810A8F8BFE8427 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		8FC8795AD922596FB118C525 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		A3FAAD4A5158EEAF1AFCEAF1 /* AppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModel.swift; sourceTree = "<group>"; };
 		A814AA6F27B9A6F975C973C4 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -24,6 +28,8 @@
 		3BF9BF4C6A386A423257BFC8 /* CrocTick */ = {
 			isa = PBXGroup;
 			children = (
+				A3FAAD4A5158EEAF1AFCEAF1 /* AppModel.swift */,
+				8FC8795AD922596FB118C525 /* Assets.xcassets */,
 				7A4EA1E5D6810A8F8BFE8427 /* ContentView.swift */,
 				465A184CA764483668BED122 /* CrocTickApp.swift */,
 				5D7A07C87C5E5453BFE1755D /* Info.plist */,
@@ -56,6 +62,7 @@
 			buildConfigurationList = 54142F325B141AC40F0ECD6B /* Build configuration list for PBXNativeTarget "CrocTick" */;
 			buildPhases = (
 				A2B6FC79B681B5463DC7D962 /* Sources */,
+				01ADC708EE05354AD34D4809 /* Resources */,
 			);
 			buildRules = (
 			);
@@ -78,7 +85,7 @@
 				LastUpgradeCheck = 2600;
 				TargetAttributes = {
 					04092564714DE4F130E6E43C = {
-						DevelopmentTeam = "";
+						DevelopmentTeam = 822CM9WZ7Z;
 					};
 				};
 			};
@@ -101,11 +108,23 @@
 		};
 /* End PBXProject section */
 
+/* Begin PBXResourcesBuildPhase section */
+		01ADC708EE05354AD34D4809 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A66E56C02D2B49681CB81379 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
 /* Begin PBXSourcesBuildPhase section */
 		A2B6FC79B681B5463DC7D962 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				17DD4240A473F66057D1C365 /* AppModel.swift in Sources */,
 				1F24217D2C8A2CDAED921C40 /* ContentView.swift in Sources */,
 				C651BFA43CAAEC4E433E6B70 /* CrocTickApp.swift in Sources */,
 				CF753BA2B39AD3C488ABCB58 /* Theme.swift in Sources */,
@@ -150,7 +169,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = dwarf;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = 822CM9WZ7Z;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
@@ -214,7 +233,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = 822CM9WZ7Z;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
@@ -239,7 +258,7 @@
 		77DCADBFC55EAC1368E6EA2A /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_APPICON_NAME = "";
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				INFOPLIST_FILE = CrocTick/Info.plist;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -259,7 +278,7 @@
 		88641CD5924AACB9BAE3F48F /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_APPICON_NAME = "";
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				INFOPLIST_FILE = CrocTick/Info.plist;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;

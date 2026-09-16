@@ -44,19 +44,21 @@ struct ContentView: View {
 }
 
 struct TopBar: View {
+    @State private var notice: String?
     var body: some View {
         HStack {
-            Button(action: {}) { Image(systemName: "line.3.horizontal").font(.headline) }
+            Button { notice = "메뉴" } label: { Image(systemName: "line.3.horizontal").font(.headline) }
                 .buttonStyle(.bordered).buttonBorderShape(.circle).controlSize(.small)
             Spacer()
-            Text("Croc").font(.system(size: 21, weight: .black, design: .rounded)).italic()
+            CrocLogo()
             Spacer()
             HStack(spacing: 8) {
-                Button(action: {}) { Image(systemName: "bell") }.buttonStyle(.bordered).buttonBorderShape(.circle).controlSize(.small)
-                Button(action: {}) { Image(systemName: "person") }.buttonStyle(.bordered).buttonBorderShape(.circle).controlSize(.small)
+                Button { notice = "새 알림이 없습니다." } label: { Image(systemName: "bell") }.buttonStyle(.bordered).buttonBorderShape(.circle).controlSize(.small)
+                Button { notice = "프로필은 마이페이지에서 관리할 수 있어요." } label: { Image(systemName: "person") }.buttonStyle(.bordered).buttonBorderShape(.circle).controlSize(.small)
             }
         }
         .tint(CrocTheme.ink)
+        .alert("CrocTick", isPresented: Binding(get: { notice != nil }, set: { if !$0 { notice = nil } })) { Button("확인", role: .cancel) {} } message: { Text(notice ?? "") }
     }
 }
 
@@ -80,6 +82,7 @@ struct SectionHeader: View {
 
 struct HomeView: View {
     @State private var query = ""
+    @State private var selectedCategory = "Music"
     var body: some View {
         NavigationStack {
             ScrollView(showsIndicators: false) {
@@ -110,7 +113,7 @@ struct HomeView: View {
                         SectionHeader(title: "Place")
                         ScrollView(.horizontal, showsIndicators: false) { HStack(spacing: 8) { ForEach(samplePlaces) { PlaceCard(place: $0) } } }
                         SectionHeader(title: "Categories")
-                        HStack(spacing: 8) { ForEach(["Music", "Band", "Lo-fi", "Jazz"], id: \.self) { Text($0).font(.caption).padding(.horizontal, 16).padding(.vertical, 8).background(.white, in: Capsule()).overlay(Capsule().stroke(.quaternary)) } }
+                        HStack(spacing: 8) { ForEach(["Music", "Band", "Lo-fi", "Jazz"], id: \.self) { category in Button { selectedCategory = category } label: { Text(category).font(.caption).foregroundStyle(selectedCategory == category ? .white : CrocTheme.ink).padding(.horizontal, 16).padding(.vertical, 8).background(selectedCategory == category ? CrocTheme.ink : .white, in: Capsule()).overlay(Capsule().stroke(.quaternary)) } } }
                     }
                     .padding(16)
                 }
@@ -127,9 +130,11 @@ struct PlaceCard: View {
 }
 
 struct ShowsView: View {
+    @EnvironmentObject private var model: AppModel
     @State private var query = ""
     @State private var category = "추천순"
-    var filtered: [Show] { sampleShows.filter { query.isEmpty || $0.title.localizedCaseInsensitiveContains(query) }.filter { category == "추천순" || $0.category == category } }
+    @State private var highFundingOnly = false
+    var filtered: [Show] { model.allShows.filter { query.isEmpty || $0.title.localizedCaseInsensitiveContains(query) }.filter { category == "추천순" || $0.category == category }.filter { !highFundingOnly || $0.progress >= 0.7 } }
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -146,9 +151,9 @@ struct ShowsView: View {
                                     .padding(.vertical, 7)
                                     .background(category == chip ? CrocTheme.ink : .white, in: Capsule())
                             }
-                            Button(action: {}) { Image(systemName: "slider.horizontal.3") }
+                            Button { highFundingOnly.toggle() } label: { Image(systemName: "slider.horizontal.3").foregroundStyle(highFundingOnly ? .white : CrocTheme.ink) }
                                 .padding(8)
-                                .background(.white, in: Circle())
+                                .background(highFundingOnly ? CrocTheme.ink : .white, in: Circle())
                         }
                     }
                     SectionHeader(title: "Recommend")
@@ -171,8 +176,33 @@ struct ShowCard: View {
 }
 
 struct MyPageView: View {
+    @EnvironmentObject private var model: AppModel
     @State private var showCreate = false
-    var body: some View { NavigationStack { ScrollView { VStack(alignment: .leading, spacing: 14) { HStack { Image(systemName: "person.circle.fill").font(.system(size: 43)).foregroundStyle(CrocTheme.orange); VStack(alignment: .leading) { Text("김철희님, 안녕하세요!").font(.headline); Text("오늘도 가장 가까운 무대를 찾아보세요.").font(.caption2).foregroundStyle(.secondary) }; Spacer(); Button(action: {}) { Image(systemName: "gearshape") } }; HStack { Stat(value: "1", label: "에티켓"); Stat(value: "4", label: "내 공연"); Stat(value: "1", label: "진행 중 공연") }.padding(14).background(.white, in: RoundedRectangle(cornerRadius: 15)); SectionHeader(title: "My ticket"); NavigationLink { ShowDetailView(show: sampleShows[1]) } label: { TicketRow() }.buttonStyle(.plain); SectionHeader(title: "My space"); NavigationLink { PlaceListView() } label: { PlaceRow(place: samplePlaces[0]) }.buttonStyle(.plain); SectionHeader(title: "Show edit"); Button { showCreate = true } label: { HStack { Image(systemName: "music.note").foregroundStyle(CrocTheme.orange).padding(8).background(CrocTheme.peach.opacity(0.35), in: RoundedRectangle(cornerRadius: 9)); VStack(alignment: .leading) { Text("우리 동네 뮤지션 나눔").font(.caption.weight(.bold)); Text("뮤지션 · 공연 정보를 등록해보세요").font(.caption2).foregroundStyle(.secondary) }; Spacer(); Image(systemName: "chevron.right").foregroundStyle(.secondary) }.padding(12).background(.white, in: RoundedRectangle(cornerRadius: 15)) }.buttonStyle(.plain) }.padding(16) }.background(CrocTheme.canvas).navigationTitle("마이").navigationBarTitleDisplayMode(.inline).sheet(isPresented: $showCreate) { CreateShowView() } } }
+    @State private var showSettings = false
+    var body: some View { NavigationStack { ScrollView { VStack(alignment: .leading, spacing: 14) { HStack { Image(systemName: "person.circle.fill").font(.system(size: 43)).foregroundStyle(CrocTheme.orange); VStack(alignment: .leading) { Text("\(model.userName)님, 안녕하세요!").font(.headline); Text("오늘도 가장 가까운 무대를 찾아보세요.").font(.caption2).foregroundStyle(.secondary) }; Spacer(); Button { showSettings = true } label: { Image(systemName: "gearshape") } }; HStack { Stat(value: "1", label: "에티켓"); Stat(value: "\(model.allShows.count)", label: "내 공연"); Stat(value: "\(model.joinedShowIDs.count)", label: "진행 중 공연") }.padding(14).background(.white, in: RoundedRectangle(cornerRadius: 15)); SectionHeader(title: "My ticket"); NavigationLink { ShowDetailView(show: sampleShows[1]) } label: { TicketRow() }.buttonStyle(.plain); SectionHeader(title: "My space"); NavigationLink { PlaceListView() } label: { PlaceRow(place: samplePlaces[0]) }.buttonStyle(.plain); SectionHeader(title: "Show edit"); Button { showCreate = true } label: { HStack { Image(systemName: "music.note").foregroundStyle(CrocTheme.orange).padding(8).background(CrocTheme.peach.opacity(0.35), in: RoundedRectangle(cornerRadius: 9)); VStack(alignment: .leading) { Text("우리 동네 뮤지션 나눔").font(.caption.weight(.bold)); Text("뮤지션 · 공연 정보를 등록해보세요").font(.caption2).foregroundStyle(.secondary) }; Spacer(); Image(systemName: "chevron.right").foregroundStyle(.secondary) }.padding(12).background(.white, in: RoundedRectangle(cornerRadius: 15)) }.buttonStyle(.plain) }.padding(16) }.background(CrocTheme.canvas).navigationTitle("마이").navigationBarTitleDisplayMode(.inline).sheet(isPresented: $showCreate) { CreateShowView() }.sheet(isPresented: $showSettings) { SettingsView() } } }
+}
+
+struct SettingsView: View {
+    @EnvironmentObject private var model: AppModel
+    @Environment(\.dismiss) private var dismiss
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("프로필") {
+                    TextField("사용자명", text: $model.userName)
+                }
+                Section {
+                    Button("저장") { dismiss() }
+                }
+            }
+            .navigationTitle("설정")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("닫기") { dismiss() }
+                }
+            }
+        }
+    }
 }
 
 struct Stat: View { let value: String; let label: String; var body: some View { VStack { Text(value).font(.headline); Text(label).font(.caption2).foregroundStyle(.secondary) }.frame(maxWidth: .infinity) } }
@@ -180,6 +210,6 @@ struct TicketRow: View { var body: some View { HStack { ZStack { CrocTheme.orang
 struct PlaceRow: View { let place: Place; var body: some View { HStack { PlaceArtwork(index: place.artwork).frame(width: 55, height: 55).clipShape(RoundedRectangle(cornerRadius: 10)); VStack(alignment: .leading, spacing: 3) { Text("운영 중").font(.caption2).foregroundStyle(CrocTheme.orange); Text(place.name).font(.caption.weight(.bold)); Text("\(place.location) · \(place.capacity)").font(.system(size: 9)).foregroundStyle(.secondary) }; Spacer(); Image(systemName: "chevron.right").foregroundStyle(.secondary) }.padding(9).background(.white, in: RoundedRectangle(cornerRadius: 15)) } }
 
 struct PlaceListView: View { var body: some View { List(samplePlaces) { place in NavigationLink { PlaceDetailView(place: place) } label: { PlaceRow(place: place).listRowInsets(EdgeInsets(top: 6, leading: 0, bottom: 6, trailing: 0)) }.listRowSeparator(.hidden) }.listStyle(.plain).navigationTitle("공간 찾기") } }
-struct PlaceDetailView: View { let place: Place; var body: some View { ScrollView { VStack(alignment: .leading, spacing: 18) { PlaceArtwork(index: place.artwork).frame(height: 260); Text(place.name).font(.largeTitle.bold()); Text("\(place.location) · \(place.capacity)").foregroundStyle(.secondary); RatingView(value: place.rating); Button("이 공간에서 공연 만들기") {}.buttonStyle(.borderedProminent).tint(CrocTheme.orange) }.padding(.bottom) }.ignoresSafeArea(edges: .top) } }
-struct ShowDetailView: View { let show: Show; @State private var joined = false; var body: some View { ScrollView { VStack(alignment: .leading, spacing: 16) { PlaceArtwork(index: show.artwork).frame(height: 270); VStack(alignment: .leading, spacing: 9) { Text(show.category).font(.caption).foregroundStyle(CrocTheme.orange); Text(show.title).font(.largeTitle.bold()); Text("\(show.date)\n\(show.location)").foregroundStyle(.secondary); VStack(alignment: .leading, spacing: 8) { HStack { Text("펀딩 달성률").font(.subheadline.bold()); Spacer(); Text("\(Int(show.progress * 100))%").font(.title3.bold()).foregroundStyle(CrocTheme.orange) }; ProgressView(value: show.progress).tint(CrocTheme.orange); Text("목표 달성 시 공연이 확정돼요 · 목표 30명").font(.caption2).foregroundStyle(.secondary) }.padding(14).background(CrocTheme.canvas, in: RoundedRectangle(cornerRadius: 14)); Text("이런 공연이에요").font(.headline); Text("좋아하는 아티스트의 무대를 우리 동네에서 만나요. 관객의 사전 티켓 구매로 공연이 만들어집니다.").font(.subheadline).foregroundStyle(.secondary).lineSpacing(4); Button(joined ? "참여 완료! 티켓을 확인하세요" : "티켓 펀딩 참여하기 · 15,000원") { joined = true }.buttonStyle(.borderedProminent).tint(joined ? .green : CrocTheme.orange).frame(maxWidth: .infinity) }.padding(.horizontal, 16) }.padding(.bottom) }.navigationTitle("공연 상세").navigationBarTitleDisplayMode(.inline) } }
-struct CreateShowView: View { @Environment(\.dismiss) private var dismiss; @State private var title = ""; var body: some View { NavigationStack { Form { Section("공연 정보") { TextField("공연 제목", text: $title); Picker("공연할 공간", selection: .constant("한울교회")) { Text("한울교회").tag("한울교회"); Text("망원동 카페 웨이브").tag("망원동 카페 웨이브") }; TextField("티켓 가격", text: .constant("15,000")); TextField("목표 관객 수", text: .constant("30")) }; Section { Button("공연 등록하기") { dismiss() }.disabled(title.isEmpty) } }.navigationTitle("새 공연").toolbar { ToolbarItem(placement: .cancellationAction) { Button("닫기") { dismiss() } } } } } }
+struct PlaceDetailView: View { let place: Place; @State private var showCreate = false; var body: some View { ScrollView { VStack(alignment: .leading, spacing: 18) { PlaceArtwork(index: place.artwork).frame(height: 260); Text(place.name).font(.largeTitle.bold()); Text("\(place.location) · \(place.capacity)").foregroundStyle(.secondary); RatingView(value: place.rating); Button("이 공간에서 공연 만들기") { showCreate = true }.buttonStyle(.borderedProminent).tint(CrocTheme.orange) }.padding(.bottom) }.ignoresSafeArea(edges: .top).sheet(isPresented: $showCreate) { CreateShowView(defaultPlace: place.name) } } }
+struct ShowDetailView: View { let show: Show; @EnvironmentObject private var model: AppModel; var isJoined: Bool { model.joinedShowIDs.contains(show.id) }; var body: some View { ScrollView { VStack(alignment: .leading, spacing: 16) { PlaceArtwork(index: show.artwork).frame(height: 270); VStack(alignment: .leading, spacing: 9) { Text(show.category).font(.caption).foregroundStyle(CrocTheme.orange); Text(show.title).font(.largeTitle.bold()); Text("\(show.date)\n\(show.location)").foregroundStyle(.secondary); VStack(alignment: .leading, spacing: 8) { HStack { Text("펀딩 달성률").font(.subheadline.bold()); Spacer(); Text("\(Int(show.progress * 100))%").font(.title3.bold()).foregroundStyle(CrocTheme.orange) }; ProgressView(value: show.progress).tint(CrocTheme.orange); Text("목표 달성 시 공연이 확정돼요 · 목표 30명").font(.caption2).foregroundStyle(.secondary) }.padding(14).background(CrocTheme.canvas, in: RoundedRectangle(cornerRadius: 14)); Text("이런 공연이에요").font(.headline); Text("좋아하는 아티스트의 무대를 우리 동네에서 만나요. 관객의 사전 티켓 구매로 공연이 만들어집니다.").font(.subheadline).foregroundStyle(.secondary).lineSpacing(4); Button(isJoined ? "참여 완료! 티켓을 확인하세요" : "티켓 펀딩 참여하기 · 15,000원") { model.join(show) }.buttonStyle(.borderedProminent).tint(isJoined ? .green : CrocTheme.orange).frame(maxWidth: .infinity) }.padding(.horizontal, 16) }.padding(.bottom) }.navigationTitle("공연 상세").navigationBarTitleDisplayMode(.inline) } }
+struct CreateShowView: View { @Environment(\.dismiss) private var dismiss; @EnvironmentObject private var model: AppModel; var defaultPlace: String = "한울교회"; @State private var title = ""; @State private var place = "한울교회"; @State private var price = "15,000"; @State private var audience = "30"; var body: some View { NavigationStack { Form { Section("공연 정보") { TextField("공연 제목", text: $title); Picker("공연할 공간", selection: $place) { Text("한울교회").tag("한울교회"); Text("망원동 카페 웨이브").tag("망원동 카페 웨이브"); Text("이음 문화센터").tag("이음 문화센터") }; TextField("티켓 가격", text: $price).keyboardType(.numberPad); TextField("목표 관객 수", text: $audience).keyboardType(.numberPad) }; Section { Button("공연 등록하기") { model.add(show: Show(title: title, date: "새로 등록한 공연", location: place, category: "Music", progress: 0, artwork: 0)); dismiss() }.disabled(title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty) } }.navigationTitle("새 공연").onAppear { place = defaultPlace }.toolbar { ToolbarItem(placement: .cancellationAction) { Button("닫기") { dismiss() } } } } } }

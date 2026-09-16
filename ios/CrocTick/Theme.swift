@@ -26,12 +26,29 @@ struct RatingView: View {
 struct PlaceArtwork: View {
     let index: Int
     var body: some View {
-        ZStack {
-            LinearGradient(colors: [Color(hue: 0.08 + Double(index) * 0.06, saturation: 0.52, brightness: 0.36), Color(hue: 0.06 + Double(index) * 0.05, saturation: 0.3, brightness: 0.72)], startPoint: .top, endPoint: .bottom)
-            Image(systemName: index == 0 ? "building.columns.fill" : index == 1 ? "cup.and.saucer.fill" : "square.grid.2x2.fill")
-                .font(.system(size: 26))
-                .foregroundStyle(.white.opacity(0.78))
-        }
+        Image(placeImageName(index))
+            .resizable()
+            .scaledToFill()
         .clipped()
+    }
+
+    private func placeImageName(_ index: Int) -> String {
+        switch index {
+        case 0: return "place-church"
+        case 1: return "place-cafe"
+        default: return "place-center"
+        }
+    }
+}
+
+struct CrocLogo: View {
+    var body: some View {
+        HStack(spacing: 5) {
+            ZStack {
+                Circle().fill(CrocTheme.orange)
+                Image(systemName: "checkmark").font(.system(size: 12, weight: .black)).foregroundStyle(.white)
+            }.frame(width: 24, height: 24)
+            Text("croctick").font(.system(size: 18, weight: .black, design: .rounded)).tracking(-1)
+        }.foregroundStyle(CrocTheme.ink)
     }
 }
