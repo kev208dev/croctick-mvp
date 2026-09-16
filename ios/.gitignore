@@ -1,4 +1,5 @@
 build/
 device-build/
 DerivedData/
+xcuserdata/
 *.xcuserstate
