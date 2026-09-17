@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		17DD4240A473F66057D1C365 /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3FAAD4A5158EEAF1AFCEAF1 /* AppModel.swift */; };
 		1F24217D2C8A2CDAED921C40 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A4EA1E5D6810A8F8BFE8427 /* ContentView.swift */; };
+		26E3EB0A9BDC6CF0D2D408AD /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = EACB2103472D95238E1F6D61 /* LaunchScreen.storyboard */; };
 		A66E56C02D2B49681CB81379 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 8FC8795AD922596FB118C525 /* Assets.xcassets */; };
 		C651BFA43CAAEC4E433E6B70 /* CrocTickApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 465A184CA764483668BED122 /* CrocTickApp.swift */; };
 		CF753BA2B39AD3C488ABCB58 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = A814AA6F27B9A6F975C973C4 /* Theme.swift */; };
@@ -22,6 +23,7 @@
 		8FC8795AD922596FB118C525 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		A3FAAD4A5158EEAF1AFCEAF1 /* AppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModel.swift; sourceTree = "<group>"; };
 		A814AA6F27B9A6F975C973C4 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
+		EACB2103472D95238E1F6D61 /* LaunchScreen.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = LaunchScreen.storyboard; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -33,6 +35,7 @@
 				7A4EA1E5D6810A8F8BFE8427 /* ContentView.swift */,
 				465A184CA764483668BED122 /* CrocTickApp.swift */,
 				5D7A07C87C5E5453BFE1755D /* Info.plist */,
+				EACB2103472D95238E1F6D61 /* LaunchScreen.storyboard */,
 				A814AA6F27B9A6F975C973C4 /* Theme.swift */,
 			);
 			path = CrocTick;
@@ -114,6 +117,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				A66E56C02D2B49681CB81379 /* Assets.xcassets in Resources */,
+				26E3EB0A9BDC6CF0D2D408AD /* LaunchScreen.storyboard in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -263,7 +267,7 @@
 				INFOPLIST_FILE = CrocTick/Info.plist;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
-				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -283,7 +287,7 @@
 				INFOPLIST_FILE = CrocTick/Info.plist;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
-				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
