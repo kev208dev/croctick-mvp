@@ -34,21 +34,19 @@ struct PlaceArtwork: View {
 
     private func placeImageName(_ index: Int) -> String {
         switch index {
-        case 0: return "place-church"
-        case 1: return "place-cafe"
-        default: return "place-center"
+        case 0: return "place-hopyeong"
+        case 1: return "place-haemaji"
+        case 2: return "place-ihyun"
+        default: return "place-hopyeong"
         }
     }
 }
 
 struct CrocLogo: View {
     var body: some View {
-        HStack(spacing: 5) {
-            ZStack {
-                Circle().fill(CrocTheme.orange)
-                Image(systemName: "checkmark").font(.system(size: 12, weight: .black)).foregroundStyle(.white)
-            }.frame(width: 24, height: 24)
-            Text("croctick").font(.system(size: 18, weight: .black, design: .rounded)).tracking(-1)
-        }.foregroundStyle(CrocTheme.ink)
+        Image("croc-logo")
+            .resizable()
+            .scaledToFit()
+            .frame(width: 40, height: 40)
     }
 }

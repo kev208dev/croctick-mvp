@@ -20,9 +20,10 @@ struct Show: Identifiable {
 }
 
 let samplePlaces = [
-    Place(id: "place-hanul", name: "한울교회", location: "경기도 남양주시", capacity: "최대 150명", rating: "4.8", artwork: 0),
-    Place(id: "place-wave", name: "망원동 카페 웨이브", location: "서울 마포구", capacity: "최대 50명", rating: "4.6", artwork: 1),
-    Place(id: "place-eeum", name: "이음 문화센터", location: "서울 성동구", capacity: "최대 80명", rating: "4.9", artwork: 2)
+    Place(id: "place-hanmaeum", name: "한마음 교회", location: "경기도 남양주시 해밀예당 1로 189번길", capacity: "최대 150명", rating: "(2394)", artwork: 0),
+    Place(id: "place-hopyeong", name: "호평 주 평화 교회", location: "남양주시 호평동 천마산로 1", capacity: "최대 30명", rating: "(198)", artwork: 1),
+    Place(id: "place-haemaji", name: "해맞이 그린 센터", location: "경상북도 포항시 환호동", capacity: "최대 54명", rating: "(54)", artwork: 2),
+    Place(id: "place-ihyun", name: "이현 교회", location: "용인시 기흥구 영덕동", capacity: "최대 80명", rating: "(593)", artwork: 3)
 ]
 
 let sampleShows = [
@@ -82,7 +83,7 @@ struct SectionHeader: View {
 
 struct HomeView: View {
     @State private var query = ""
-    @State private var selectedCategory = "Music"
+    @State private var selectedCategory = "Calm"
     var body: some View {
         NavigationStack {
             ScrollView(showsIndicators: false) {
@@ -105,7 +106,7 @@ struct HomeView: View {
                         NavigationLink { PlaceListView() } label: {
                             HStack(spacing: 10) {
                                 PlaceArtwork(index: 0).frame(width: 76, height: 76).clipShape(RoundedRectangle(cornerRadius: 11))
-                                VStack(alignment: .leading, spacing: 4) { Text("한울교회").font(.subheadline.weight(.bold)); Text("경기도 남양주시 · 최대 150명").font(.caption2).foregroundStyle(.secondary); RatingView() }
+                                VStack(alignment: .leading, spacing: 4) { Text("한마음 교회").font(.subheadline.weight(.bold)); Text("경기도 남양주시 해밀예당 1로 189번길").font(.caption2).foregroundStyle(.secondary); RatingView(value: "(2394)") }
                                 Spacer(); Image(systemName: "chevron.right").font(.caption).foregroundStyle(.secondary)
                             }
                             .padding(9).background(.white, in: RoundedRectangle(cornerRadius: 15)).shadow(color: CrocTheme.cardShadow, radius: 8, y: 3)
@@ -113,7 +114,7 @@ struct HomeView: View {
                         SectionHeader(title: "Place")
                         ScrollView(.horizontal, showsIndicators: false) { HStack(spacing: 8) { ForEach(samplePlaces) { PlaceCard(place: $0) } } }
                         SectionHeader(title: "Categories")
-                        HStack(spacing: 8) { ForEach(["Music", "Band", "Lo-fi", "Jazz"], id: \.self) { category in Button { selectedCategory = category } label: { Text(category).font(.caption).foregroundStyle(selectedCategory == category ? .white : CrocTheme.ink).padding(.horizontal, 16).padding(.vertical, 8).background(selectedCategory == category ? CrocTheme.ink : .white, in: Capsule()).overlay(Capsule().stroke(.quaternary)) } } }
+                        HStack(spacing: 8) { ForEach(["Calm", "Band", "Lo-fi", "Jazz"], id: \.self) { category in Button { selectedCategory = category } label: { Text(category).font(.caption).foregroundStyle(selectedCategory == category ? .white : CrocTheme.ink).padding(.horizontal, 16).padding(.vertical, 8).background(selectedCategory == category ? CrocTheme.ink : .white, in: Capsule()).overlay(Capsule().stroke(.quaternary)) } } }
                     }
                     .padding(16)
                 }
@@ -134,7 +135,13 @@ struct ShowsView: View {
     @State private var query = ""
     @State private var category = "추천순"
     @State private var highFundingOnly = false
-    var filtered: [Show] { model.allShows.filter { query.isEmpty || $0.title.localizedCaseInsensitiveContains(query) }.filter { category == "추천순" || $0.category == category }.filter { !highFundingOnly || $0.progress >= 0.7 } }
+    var filtered: [Show] {
+        let categoryMap = ["잔잔한": "Lo-fi", "신나는": "Music", "나만 아는": "Band"]
+        return model.allShows
+            .filter { query.isEmpty || $0.title.localizedCaseInsensitiveContains(query) }
+            .filter { category == "추천순" || category == "내 주변" || $0.category == categoryMap[category] }
+            .filter { !highFundingOnly || $0.progress >= 0.7 }
+    }
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -143,7 +150,7 @@ struct ShowsView: View {
                         .background(CrocTheme.peach.opacity(0.33), in: Capsule())
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 7) {
-                            ForEach(["추천순", "Music", "Band", "Lo-fi", "Jazz"], id: \.self) { chip in
+                            ForEach(["추천순", "잔잔한", "신나는", "나만 아는", "내 주변"], id: \.self) { chip in
                                 Button("#\(chip)") { category = chip }
                                     .font(.caption2)
                                     .foregroundStyle(category == chip ? .white : CrocTheme.ink)
@@ -179,7 +186,7 @@ struct MyPageView: View {
     @EnvironmentObject private var model: AppModel
     @State private var showCreate = false
     @State private var showSettings = false
-    var body: some View { NavigationStack { ScrollView { VStack(alignment: .leading, spacing: 14) { HStack { Image(systemName: "person.circle.fill").font(.system(size: 43)).foregroundStyle(CrocTheme.orange); VStack(alignment: .leading) { Text("\(model.userName)님, 안녕하세요!").font(.headline); Text("오늘도 가장 가까운 무대를 찾아보세요.").font(.caption2).foregroundStyle(.secondary) }; Spacer(); Button { showSettings = true } label: { Image(systemName: "gearshape") } }; HStack { Stat(value: "1", label: "에티켓"); Stat(value: "\(model.allShows.count)", label: "내 공연"); Stat(value: "\(model.joinedShowIDs.count)", label: "진행 중 공연") }.padding(14).background(.white, in: RoundedRectangle(cornerRadius: 15)); SectionHeader(title: "My ticket"); NavigationLink { ShowDetailView(show: sampleShows[1]) } label: { TicketRow() }.buttonStyle(.plain); SectionHeader(title: "My space"); NavigationLink { PlaceListView() } label: { PlaceRow(place: samplePlaces[0]) }.buttonStyle(.plain); SectionHeader(title: "Show edit"); Button { showCreate = true } label: { HStack { Image(systemName: "music.note").foregroundStyle(CrocTheme.orange).padding(8).background(CrocTheme.peach.opacity(0.35), in: RoundedRectangle(cornerRadius: 9)); VStack(alignment: .leading) { Text("우리 동네 뮤지션 나눔").font(.caption.weight(.bold)); Text("뮤지션 · 공연 정보를 등록해보세요").font(.caption2).foregroundStyle(.secondary) }; Spacer(); Image(systemName: "chevron.right").foregroundStyle(.secondary) }.padding(12).background(.white, in: RoundedRectangle(cornerRadius: 15)) }.buttonStyle(.plain) }.padding(16) }.background(CrocTheme.canvas).navigationTitle("마이").navigationBarTitleDisplayMode(.inline).sheet(isPresented: $showCreate) { CreateShowView() }.sheet(isPresented: $showSettings) { SettingsView() } } }
+    var body: some View { NavigationStack { ScrollView { VStack(alignment: .leading, spacing: 14) { HStack { Image(systemName: "person.circle.fill").font(.system(size: 43)).foregroundStyle(CrocTheme.orange); VStack(alignment: .leading) { Text("\(model.userName)님, 안녕하세요!").font(.headline); Text("오늘도 가까운 곳에서 만나는 무대").font(.caption2).foregroundStyle(.secondary) }; Spacer(); Button { showSettings = true } label: { Image(systemName: "gearshape") } }; HStack { Stat(value: "1", label: "예매 티켓"); Stat(value: "1", label: "내 공간"); Stat(value: "1", label: "진행 공연") }.padding(14).background(.white, in: RoundedRectangle(cornerRadius: 15)); SectionHeader(title: "My ticket"); NavigationLink { ShowDetailView(show: sampleShows[1]) } label: { TicketRow() }.buttonStyle(.plain); SectionHeader(title: "My space"); NavigationLink { PlaceListView() } label: { PlaceRow(place: samplePlaces[0]) }.buttonStyle(.plain); SectionHeader(title: "Show edit"); Button { showCreate = true } label: { HStack { Image(systemName: "music.note").foregroundStyle(CrocTheme.orange).padding(8).background(CrocTheme.peach.opacity(0.35), in: RoundedRectangle(cornerRadius: 9)); VStack(alignment: .leading) { Text("우리 동네 뮤지션 나눔").font(.caption.weight(.bold)); Text("뮤지션 · 공연 정보를 등록해보세요").font(.caption2).foregroundStyle(.secondary) }; Spacer(); Image(systemName: "chevron.right").foregroundStyle(.secondary) }.padding(12).background(.white, in: RoundedRectangle(cornerRadius: 15)) }.buttonStyle(.plain) }.padding(16) }.background(CrocTheme.canvas).navigationTitle("마이").navigationBarTitleDisplayMode(.inline).sheet(isPresented: $showCreate) { CreateShowView() }.sheet(isPresented: $showSettings) { SettingsView() } } }
 }
 
 struct SettingsView: View {

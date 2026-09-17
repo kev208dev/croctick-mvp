@@ -10,7 +10,7 @@ final class AppModel: ObservableObject {
     @Published var selectedPlace: Place?
 
     init() {
-        userName = UserDefaults.standard.string(forKey: "crocTick.userName") ?? "이채호"
+        userName = UserDefaults.standard.string(forKey: "crocTick.userName") ?? "김청휘"
     }
 
     var allShows: [Show] { createdShows + sampleShows }
