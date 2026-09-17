@@ -1,4 +1,5 @@
 import SwiftUI
+import PhotosUI
 
 struct Place: Identifiable, Codable {
     let id: String
@@ -7,6 +8,25 @@ struct Place: Identifiable, Codable {
     let capacity: String
     let rating: String
     let artwork: Int
+    let introduction: String?
+    let equipment: String?
+    let rentalFee: Int?
+    let operatingHours: String?
+    let photoData: Data?
+
+    init(id: String, name: String, location: String, capacity: String, rating: String, artwork: Int, introduction: String? = nil, equipment: String? = nil, rentalFee: Int? = nil, operatingHours: String? = nil, photoData: Data? = nil) {
+        self.id = id
+        self.name = name
+        self.location = location
+        self.capacity = capacity
+        self.rating = rating
+        self.artwork = artwork
+        self.introduction = introduction
+        self.equipment = equipment
+        self.rentalFee = rentalFee
+        self.operatingHours = operatingHours
+        self.photoData = photoData
+    }
 }
 
 struct Show: Identifiable, Codable {
@@ -17,6 +37,28 @@ struct Show: Identifiable, Codable {
     let category: String
     let progress: Double
     let artwork: Int
+    let introduction: String?
+    let artists: String?
+    let ticketPrice: Int?
+    let targetAudience: Int?
+    let fundingGoal: Int?
+    let posterData: Data?
+
+    init(id: String, title: String, date: String, location: String, category: String, progress: Double, artwork: Int, introduction: String? = nil, artists: String? = nil, ticketPrice: Int? = nil, targetAudience: Int? = nil, fundingGoal: Int? = nil, posterData: Data? = nil) {
+        self.id = id
+        self.title = title
+        self.date = date
+        self.location = location
+        self.category = category
+        self.progress = progress
+        self.artwork = artwork
+        self.introduction = introduction
+        self.artists = artists
+        self.ticketPrice = ticketPrice
+        self.targetAudience = targetAudience
+        self.fundingGoal = fundingGoal
+        self.posterData = posterData
+    }
 }
 
 let samplePlaces = [
@@ -212,6 +254,7 @@ struct SectionHeader: View {
 }
 
 struct HomeView: View {
+    @EnvironmentObject private var model: AppModel
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     let onMenu: () -> Void
     let onNotifications: () -> Void
@@ -220,12 +263,13 @@ struct HomeView: View {
 
     @State private var query = ""
     @State private var showPlaces = false
+    @State private var showSpaceRegistration = false
 
     private var isRegular: Bool { horizontalSizeClass == .regular }
 
     private var visiblePlaces: [Place] {
-        guard !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return samplePlaces }
-        return samplePlaces.filter {
+        guard !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return model.allPlaces }
+        return model.allPlaces.filter {
             $0.name.localizedCaseInsensitiveContains(query) ||
             $0.location.localizedCaseInsensitiveContains(query)
         }
@@ -273,7 +317,8 @@ struct HomeView: View {
                         }
                         SectionHeader(
                             title: query.isEmpty ? "Place" : "Search results",
-                            action: query.isEmpty ? { showPlaces = true } : nil
+                            actionTitle: query.isEmpty ? "공간 등록 +" : "",
+                            action: query.isEmpty ? { showSpaceRegistration = true } : nil
                         )
                         if visiblePlaces.isEmpty {
                             EmptySearchView(message: "일치하는 공간이 없어요")
@@ -306,6 +351,7 @@ struct HomeView: View {
             .background(CrocTheme.canvas)
             .toolbar(.hidden, for: .navigationBar)
             .sheet(isPresented: $showPlaces) { NavigationStack { PlaceListView() } }
+            .sheet(isPresented: $showSpaceRegistration) { RegisterSpaceView() }
         }
     }
 }
@@ -492,7 +538,7 @@ struct FeaturedShowCard: View {
     var body: some View {
         NavigationLink { ShowDetailView(show: show) } label: {
             HStack(spacing: 12) {
-                PosterArtwork(index: show.artwork)
+                PosterArtwork(index: show.artwork, data: show.posterData)
                     .frame(width: horizontalSizeClass == .regular ? 156 : 108, height: horizontalSizeClass == .regular ? 198 : 138)
                     .clipShape(RoundedRectangle(cornerRadius: 14))
                 VStack(alignment: .leading, spacing: 7) {
@@ -521,7 +567,7 @@ struct CompactShowCard: View {
     var body: some View {
         NavigationLink { ShowDetailView(show: show) } label: {
             VStack(alignment: .leading, spacing: 4) {
-                PosterArtwork(index: show.artwork)
+                PosterArtwork(index: show.artwork, data: show.posterData)
                     .frame(width: cardWidth, height: horizontalSizeClass == .regular ? 238 : 158)
                     .clipShape(RoundedRectangle(cornerRadius: 12))
                 Text(show.title).font(.caption.weight(.bold)).lineLimit(1)
@@ -535,25 +581,26 @@ struct CompactShowCard: View {
 }
 
 struct ShowCard: View {
+    @EnvironmentObject private var model: AppModel
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     let show: Show
 
     var body: some View {
         NavigationLink { ShowDetailView(show: show) } label: {
             VStack(alignment: .leading, spacing: 6) {
-                PosterArtwork(index: show.artwork)
+                PosterArtwork(index: show.artwork, data: show.posterData)
                     .frame(height: horizontalSizeClass == .regular ? 240 : 156)
                     .clipShape(RoundedRectangle(cornerRadius: 13))
                 Text(show.title).font(.caption.weight(.bold)).lineLimit(1)
                 Text(show.date).font(.caption2)
                 Text(show.location).font(.caption).foregroundStyle(.secondary).lineLimit(1)
                 HStack {
-                    Text("\(Int(show.progress * 100))% funded")
+                    Text("\(Int(model.fundingProgress(for: show) * 100))% funded")
                         .font(.caption.weight(.bold)).foregroundStyle(CrocTheme.orange)
                     Spacer()
-                    Text("30 tickets").font(.caption).foregroundStyle(.secondary)
+                    Text("\(show.targetAudience ?? 30) tickets").font(.caption).foregroundStyle(.secondary)
                 }
-                ProgressView(value: show.progress).tint(CrocTheme.orange)
+                ProgressView(value: model.fundingProgress(for: show)).tint(CrocTheme.orange)
             }
             .padding(9)
             .crocCard()
@@ -761,8 +808,9 @@ struct CreatedShowRow: View {
 }
 
 struct PlaceListView: View {
+    @EnvironmentObject private var model: AppModel
     var body: some View {
-        List(samplePlaces) { place in
+        List(model.allPlaces) { place in
             NavigationLink { PlaceDetailView(place: place) } label: { PlaceRow(place: place) }
                 .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
                 .listRowSeparator(.hidden)
@@ -782,15 +830,27 @@ struct PlaceDetailView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
-                PlaceArtwork(index: place.artwork).frame(height: 280).clipShape(RoundedRectangle(cornerRadius: 22))
+                PlaceArtwork(index: place.artwork, data: place.photoData).frame(height: 280).clipShape(RoundedRectangle(cornerRadius: 22))
                 Text(place.name).font(.largeTitle.bold())
                 Label(place.location, systemImage: "mappin.and.ellipse").foregroundStyle(.secondary)
                 Label(place.capacity, systemImage: "person.2").foregroundStyle(.secondary)
                 RatingView(value: place.rating)
                 Divider()
                 Text("공간 소개").font(.headline)
-                Text("동네 관객과 아티스트가 가까이 만날 수 있는 공연 공간입니다. 공연 장비와 좌석 배치는 협의할 수 있어요.")
+                Text(place.introduction ?? "동네 관객과 아티스트가 가까이 만날 수 있는 공연 공간입니다. 공연 장비와 좌석 배치는 협의할 수 있어요.")
                     .font(.subheadline).foregroundStyle(.secondary).lineSpacing(4)
+                if let equipment = place.equipment, !equipment.isEmpty {
+                    Label(equipment, systemImage: "hifispeaker.2")
+                        .font(.subheadline).foregroundStyle(.secondary)
+                }
+                if let rentalFee = place.rentalFee {
+                    Label("대관료 \(rentalFee.formatted())원 / 회차", systemImage: "wonsign.circle")
+                        .font(.subheadline).foregroundStyle(.secondary)
+                }
+                if let operatingHours = place.operatingHours, !operatingHours.isEmpty {
+                    Label("운영 시간 \(operatingHours)", systemImage: "clock")
+                        .font(.subheadline).foregroundStyle(.secondary)
+                }
                 Button("이 공간에서 공연 만들기") { showCreate = true }
                     .buttonStyle(CrocPrimaryButtonStyle())
             }
@@ -812,7 +872,7 @@ struct ShowDetailView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                PosterArtwork(index: show.artwork).frame(height: 360).clipShape(RoundedRectangle(cornerRadius: 22))
+                PosterArtwork(index: show.artwork, data: show.posterData).frame(height: 360).clipShape(RoundedRectangle(cornerRadius: 22))
                 VStack(alignment: .leading, spacing: 10) {
                     Text(show.category).font(.caption.weight(.semibold)).foregroundStyle(CrocTheme.orange)
                     Text(show.title).font(.largeTitle.bold())
@@ -820,9 +880,13 @@ struct ShowDetailView: View {
                     Label(show.location, systemImage: "mappin.and.ellipse")
                     FundingCard(show: show)
                     Text("이런 공연이에요").font(.headline).padding(.top, 4)
-                    Text("좋아하는 아티스트의 무대를 우리 동네에서 만나요. 관객의 사전 티켓 구매로 공연이 만들어집니다.")
+                    Text(show.introduction ?? "좋아하는 아티스트의 무대를 우리 동네에서 만나요. 관객의 사전 티켓 구매로 공연이 만들어집니다.")
                         .font(.subheadline).foregroundStyle(.secondary).lineSpacing(4)
-                    Button(isJoined ? "참여 완료! 티켓을 확인하세요" : "티켓 펀딩 참여하기 · 15,000원") { model.join(show) }
+                    if let artists = show.artists, !artists.isEmpty {
+                        Label(artists, systemImage: "music.mic")
+                            .font(.subheadline).foregroundStyle(.secondary)
+                    }
+                    Button(isJoined ? "참여 완료! 티켓을 확인하세요" : "티켓 펀딩 참여하기 · \((show.ticketPrice ?? 15_000).formatted())원") { model.join(show) }
                         .buttonStyle(CrocPrimaryButtonStyle(color: isJoined ? .green : CrocTheme.orange))
                         .disabled(isJoined)
                 }
@@ -837,16 +901,17 @@ struct ShowDetailView: View {
 
 struct FundingCard: View {
     let show: Show
+    @EnvironmentObject private var model: AppModel
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Text("펀딩 달성률").font(.subheadline.bold())
                 Spacer()
-                Text("\(Int(show.progress * 100))%").font(.title3.bold()).foregroundStyle(CrocTheme.orange)
+                Text("\(Int(model.fundingProgress(for: show) * 100))%").font(.title3.bold()).foregroundStyle(CrocTheme.orange)
             }
-            ProgressView(value: show.progress).tint(CrocTheme.orange)
-            Text("목표 달성 시 공연이 확정돼요 · 목표 30명").font(.caption2).foregroundStyle(.secondary)
+            ProgressView(value: model.fundingProgress(for: show)).tint(CrocTheme.orange)
+            Text("목표 달성 시 공연이 확정돼요 · 목표 \(show.targetAudience ?? 30)명").font(.caption2).foregroundStyle(.secondary)
         }
         .padding(14)
         .background(.white, in: RoundedRectangle(cornerRadius: 14))
@@ -860,42 +925,71 @@ struct CreateShowView: View {
 
     @State private var title = ""
     @State private var place = "한마음 교회"
-    @State private var date = "11/30"
+    @State private var date = Date()
     @State private var category = "Music"
     @State private var price = "15000"
     @State private var audience = "30"
+    @State private var fundingGoal = "450000"
+    @State private var introduction = ""
+    @State private var artists = ""
+    @State private var artwork = 0
+    @State private var selectedPoster: PhotosPickerItem?
+    @State private var posterData: Data?
 
     private var isValid: Bool {
-        !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && Int(price) != nil && Int(audience) != nil
+        !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+        !introduction.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+        (Int(price) ?? 0) > 0 && (Int(audience) ?? 0) > 0 && (Int(fundingGoal) ?? 0) > 0
     }
 
     var body: some View {
         NavigationStack {
             Form {
-                Section("공연 정보") {
-                    TextField("공연 제목", text: $title)
+                Section("공연 기본 정보") {
+                    TextField("공연 제목 · 예: 금요일 밤 인디 라이브", text: $title)
+                    TextField("출연 아티스트 · 예: 민수, 지민 밴드", text: $artists)
+                    TextField("공연 소개 · 관객에게 공연의 매력을 알려주세요", text: $introduction, axis: .vertical)
+                        .lineLimit(3...6)
                     Picker("공연할 공간", selection: $place) {
-                        ForEach(samplePlaces) { item in Text(item.name).tag(item.name) }
+                        ForEach(model.allPlaces) { item in Text(item.name).tag(item.name) }
                     }
-                    TextField("공연 날짜", text: $date)
+                    DatePicker("공연 날짜와 시작 시간", selection: $date, displayedComponents: [.date, .hourAndMinute])
                     Picker("카테고리", selection: $category) {
                         ForEach(["Music", "Band", "Lo-fi", "Solo concert"], id: \.self) { Text($0) }
                     }
                 }
                 Section("펀딩 설정") {
-                    TextField("티켓 가격", text: $price).keyboardType(.numberPad)
-                    TextField("목표 관객 수", text: $audience).keyboardType(.numberPad)
+                    TextField("티켓 가격(원) · 예: 15000", text: $price).keyboardType(.numberPad)
+                    TextField("목표 관객 수(명) · 예: 30", text: $audience).keyboardType(.numberPad)
+                    TextField("펀딩 목표 금액(원) · 예: 450000", text: $fundingGoal).keyboardType(.numberPad)
+                }
+                Section("공연 포스터") {
+                    PhotosPicker(selection: $selectedPoster, matching: .images) {
+                        Label(posterData == nil ? "사진 보관함에서 포스터 선택" : "선택한 포스터 변경", systemImage: "photo.on.rectangle")
+                    }
+                    Picker("기본 포스터 디자인", selection: $artwork) {
+                        ForEach(0..<4, id: \.self) { index in Text("디자인 \(index + 1)").tag(index) }
+                    }
+                    PosterArtwork(index: artwork, data: posterData)
+                        .frame(height: 210)
+                        .clipShape(RoundedRectangle(cornerRadius: 14))
                 }
                 Section {
                     Button("공연 등록하기") {
                         let show = Show(
                             id: "created-\(UUID().uuidString)",
                             title: title.trimmingCharacters(in: .whitespacesAndNewlines),
-                            date: date,
+                            date: date.formatted(date: .abbreviated, time: .shortened),
                             location: place,
                             category: category,
                             progress: 0,
-                            artwork: model.createdShows.count % 4
+                            artwork: artwork,
+                            introduction: introduction.trimmingCharacters(in: .whitespacesAndNewlines),
+                            artists: artists.trimmingCharacters(in: .whitespacesAndNewlines),
+                            ticketPrice: Int(price),
+                            targetAudience: Int(audience),
+                            fundingGoal: Int(fundingGoal),
+                            posterData: posterData
                         )
                         model.add(show: show)
                         dismiss()
@@ -905,6 +999,9 @@ struct CreateShowView: View {
             }
             .navigationTitle("새 공연")
             .onAppear { place = defaultPlace }
+            .task(id: selectedPoster) {
+                posterData = try? await selectedPoster?.loadTransferable(type: Data.self)
+            }
             .toolbar { ToolbarItem(placement: .cancellationAction) { Button("닫기") { dismiss() } } }
         }
     }
@@ -999,21 +1096,48 @@ struct RegisterSpaceView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var name = ""
     @State private var location = ""
-    @State private var capacity = "50"
+    @State private var capacity = ""
+    @State private var introduction = ""
+    @State private var equipment = ""
+    @State private var rentalFee = ""
+    @State private var operatingHours = ""
+    @State private var artwork = 0
+    @State private var selectedPhoto: PhotosPickerItem?
+    @State private var photoData: Data?
 
     private var isValid: Bool {
         !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
         !location.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
-        (Int(capacity) ?? 0) > 0
+        !introduction.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+        (Int(capacity) ?? 0) > 0 && (Int(rentalFee) ?? 0) > 0
     }
 
     var body: some View {
         NavigationStack {
             Form {
-                Section("공간 정보") {
-                    TextField("공간 이름", text: $name)
-                    TextField("주소", text: $location)
-                    TextField("최대 수용 인원", text: $capacity).keyboardType(.numberPad)
+                Section("공간 기본 정보") {
+                    TextField("공간 이름 · 예: 성수 라이브홀", text: $name)
+                    TextField("주소 · 예: 서울 성동구 ...", text: $location)
+                    TextField("공간 소개 · 어떤 공연에 어울리는 곳인가요?", text: $introduction, axis: .vertical)
+                        .lineLimit(3...6)
+                }
+                Section("대관 및 장비") {
+                    TextField("최대 수용 인원(명) · 예: 80", text: $capacity).keyboardType(.numberPad)
+                    TextField("대관료(원/회차) · 예: 50000", text: $rentalFee).keyboardType(.numberPad)
+                    TextField("운영 시간 · 예: 10:00 - 22:00", text: $operatingHours)
+                    TextField("보유 장비 · 예: 마이크 4개, 믹서, 스피커", text: $equipment, axis: .vertical)
+                        .lineLimit(2...5)
+                }
+                Section("공간 대표 사진") {
+                    PhotosPicker(selection: $selectedPhoto, matching: .images) {
+                        Label(photoData == nil ? "사진 보관함에서 대표 사진 선택" : "선택한 대표 사진 변경", systemImage: "photo.on.rectangle")
+                    }
+                    Picker("기본 이미지", selection: $artwork) {
+                        ForEach(0..<4, id: \.self) { index in Text("이미지 \(index + 1)").tag(index) }
+                    }
+                    PlaceArtwork(index: artwork, data: photoData)
+                        .frame(height: 180)
+                        .clipShape(RoundedRectangle(cornerRadius: 14))
                 }
                 Section {
                     Button("공간 등록하기") {
@@ -1023,7 +1147,12 @@ struct RegisterSpaceView: View {
                             location: location.trimmingCharacters(in: .whitespacesAndNewlines),
                             capacity: "최대 \(capacity)명",
                             rating: "신규",
-                            artwork: model.registeredPlaces.count % 4
+                            artwork: artwork,
+                            introduction: introduction.trimmingCharacters(in: .whitespacesAndNewlines),
+                            equipment: equipment.trimmingCharacters(in: .whitespacesAndNewlines),
+                            rentalFee: Int(rentalFee),
+                            operatingHours: operatingHours.trimmingCharacters(in: .whitespacesAndNewlines),
+                            photoData: photoData
                         ))
                         dismiss()
                     }
@@ -1031,6 +1160,9 @@ struct RegisterSpaceView: View {
                 }
             }
             .navigationTitle("공간 등록")
+            .task(id: selectedPhoto) {
+                photoData = try? await selectedPhoto?.loadTransferable(type: Data.self)
+            }
             .toolbar { ToolbarItem(placement: .cancellationAction) { Button("닫기") { dismiss() } } }
         }
     }

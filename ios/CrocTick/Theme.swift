@@ -25,11 +25,15 @@ struct RatingView: View {
 
 struct PlaceArtwork: View {
     let index: Int
+    var data: Data? = nil
     var body: some View {
-        Image(placeImageName(index))
-            .resizable()
-            .scaledToFill()
-        .clipped()
+        Group {
+            if let data, let image = UIImage(data: data) {
+                Image(uiImage: image).resizable().scaledToFill()
+            } else {
+                Image(placeImageName(index)).resizable().scaledToFill()
+            }
+        }.clipped()
     }
 
     private func placeImageName(_ index: Int) -> String {
@@ -44,12 +48,16 @@ struct PlaceArtwork: View {
 
 struct PosterArtwork: View {
     let index: Int
+    var data: Data? = nil
 
     var body: some View {
-        Image(posterImageName(index))
-            .resizable()
-            .scaledToFill()
-            .clipped()
+        Group {
+            if let data, let image = UIImage(data: data) {
+                Image(uiImage: image).resizable().scaledToFill()
+            } else {
+                Image(posterImageName(index)).resizable().scaledToFill()
+            }
+        }.clipped()
     }
 
     private func posterImageName(_ index: Int) -> String {
