@@ -112,7 +112,7 @@ struct CrocTabBar: View {
                             .font(.caption2.weight(.semibold))
                     }
                     .foregroundStyle(selection == tab ? CrocTheme.orange : .white)
-                    .frame(maxWidth: .infinity, minHeight: 58)
+                    .frame(maxWidth: .infinity, minHeight: 54)
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
@@ -120,8 +120,8 @@ struct CrocTabBar: View {
                 .accessibilityAddTraits(selection == tab ? .isSelected : [])
             }
         }
-        .frame(height: 79)
-        .background(Color.black)
+        .frame(height: 58)
+        .background(Color.black.ignoresSafeArea(edges: .bottom))
     }
 }
 
@@ -206,6 +206,7 @@ struct SectionHeader: View {
 }
 
 struct HomeView: View {
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     let onMenu: () -> Void
     let onNotifications: () -> Void
     let onProfile: () -> Void
@@ -213,6 +214,8 @@ struct HomeView: View {
 
     @State private var query = ""
     @State private var showPlaces = false
+
+    private var isRegular: Bool { horizontalSizeClass == .regular }
 
     private var visiblePlaces: [Place] {
         guard !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return samplePlaces }
@@ -227,7 +230,7 @@ struct HomeView: View {
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 0) {
                     ZStack(alignment: .top) {
-                        OrangeHero().frame(height: 318)
+                        OrangeHero().frame(height: isRegular ? 390 : 318)
                         VStack(alignment: .leading, spacing: 16) {
                             TopBar(
                                 onMenu: onMenu,
@@ -253,6 +256,7 @@ struct HomeView: View {
                             SearchPill(text: $query)
                         }
                         .padding(.horizontal, 16)
+                        .adaptivePage(maxWidth: 960)
                     }
                     VStack(alignment: .leading, spacing: 14) {
                         if query.isEmpty {
@@ -269,8 +273,14 @@ struct HomeView: View {
                         if visiblePlaces.isEmpty {
                             EmptySearchView(message: "일치하는 공간이 없어요")
                         } else {
-                            ScrollView(.horizontal, showsIndicators: false) {
-                                HStack(spacing: 8) { ForEach(visiblePlaces) { PlaceCard(place: $0) } }
+                            if isRegular {
+                                LazyVGrid(columns: [GridItem(.adaptive(minimum: 180), spacing: 12)], spacing: 12) {
+                                    ForEach(visiblePlaces) { PlaceCard(place: $0) }
+                                }
+                            } else {
+                                ScrollView(.horizontal, showsIndicators: false) {
+                                    HStack(spacing: 8) { ForEach(visiblePlaces) { PlaceCard(place: $0) } }
+                                }
                             }
                         }
                         SectionHeader(title: "Categories")
@@ -284,6 +294,7 @@ struct HomeView: View {
                         }
                     }
                     .padding(16)
+                    .adaptivePage(maxWidth: 960)
                 }
             }
             .scrollDismissesKeyboard(.interactively)
@@ -316,19 +327,22 @@ struct FeaturedPlaceCard: View {
 }
 
 struct PlaceCard: View {
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     let place: Place
+
+    private var cardWidth: CGFloat { horizontalSizeClass == .regular ? 180 : 104 }
 
     var body: some View {
         NavigationLink { PlaceDetailView(place: place) } label: {
             VStack(alignment: .leading, spacing: 3) {
                 PlaceArtwork(index: place.artwork)
-                    .frame(width: 104, height: 72)
+                    .frame(width: cardWidth, height: horizontalSizeClass == .regular ? 112 : 72)
                     .clipShape(RoundedRectangle(cornerRadius: 9))
                 Text(place.name).font(.caption2.weight(.bold)).lineLimit(1)
                 Text(place.location).font(.system(size: 8)).foregroundStyle(.secondary).lineLimit(1)
                 RatingView(value: place.rating)
             }
-            .frame(width: 104, alignment: .leading)
+            .frame(width: cardWidth, alignment: .leading)
             .padding(5)
             .background(.white, in: RoundedRectangle(cornerRadius: 12))
         }
@@ -356,6 +370,7 @@ struct CategoryButton: View {
 
 struct ShowsView: View {
     @EnvironmentObject private var model: AppModel
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Binding var category: String
     let onMenu: () -> Void
     let onNotifications: () -> Void
@@ -365,6 +380,8 @@ struct ShowsView: View {
     @State private var highFundingOnly = false
     @State private var showAll = false
     private let chips = ["추천순", "잔잔한", "신나는", "나만 아는", "내 주변"]
+
+    private var isRegular: Bool { horizontalSizeClass == .regular }
 
     private var isDefaultBrowse: Bool { query.isEmpty && category == "추천순" && !highFundingOnly && !showAll }
 
@@ -409,9 +426,15 @@ struct ShowsView: View {
                         SectionHeader(title: "Recommend", action: { showAll = true })
                         FeaturedShowCard(show: sampleShows[0])
                         SectionHeader(title: "Categories", action: { showAll = true })
-                        ScrollView(.horizontal, showsIndicators: false) {
-                            HStack(spacing: 10) {
+                        if isRegular {
+                            LazyVGrid(columns: [GridItem(.adaptive(minimum: 190), spacing: 14)], spacing: 14) {
                                 ForEach(model.allShows.filter { $0.id != sampleShows[0].id }) { CompactShowCard(show: $0) }
+                            }
+                        } else {
+                            ScrollView(.horizontal, showsIndicators: false) {
+                                HStack(spacing: 10) {
+                                    ForEach(model.allShows.filter { $0.id != sampleShows[0].id }) { CompactShowCard(show: $0) }
+                                }
                             }
                         }
                     } else {
@@ -419,13 +442,14 @@ struct ShowsView: View {
                         if filtered.isEmpty {
                             EmptySearchView(message: "조건에 맞는 공연이 없어요")
                         } else {
-                            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+                            LazyVGrid(columns: [GridItem(.adaptive(minimum: isRegular ? 210 : 145), spacing: 12)], spacing: 12) {
                                 ForEach(filtered) { ShowCard(show: $0) }
                             }
                         }
                     }
                 }
                 .padding(16)
+                .adaptivePage(maxWidth: 960)
             }
             .scrollDismissesKeyboard(.interactively)
             .background(OrangeHero().opacity(0.68).ignoresSafeArea())
@@ -458,13 +482,14 @@ struct FilterChip: View {
 }
 
 struct FeaturedShowCard: View {
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     let show: Show
 
     var body: some View {
         NavigationLink { ShowDetailView(show: show) } label: {
             HStack(spacing: 12) {
                 PosterArtwork(index: show.artwork)
-                    .frame(width: 108, height: 138)
+                    .frame(width: horizontalSizeClass == .regular ? 156 : 108, height: horizontalSizeClass == .regular ? 198 : 138)
                     .clipShape(RoundedRectangle(cornerRadius: 14))
                 VStack(alignment: .leading, spacing: 7) {
                     Text(show.title).font(.headline).lineLimit(2)
@@ -484,31 +509,37 @@ struct FeaturedShowCard: View {
 }
 
 struct CompactShowCard: View {
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     let show: Show
+
+    private var cardWidth: CGFloat { horizontalSizeClass == .regular ? 190 : 118 }
 
     var body: some View {
         NavigationLink { ShowDetailView(show: show) } label: {
             VStack(alignment: .leading, spacing: 4) {
                 PosterArtwork(index: show.artwork)
-                    .frame(width: 118, height: 158)
+                    .frame(width: cardWidth, height: horizontalSizeClass == .regular ? 238 : 158)
                     .clipShape(RoundedRectangle(cornerRadius: 12))
                 Text(show.title).font(.caption.weight(.bold)).lineLimit(1)
                 Text(show.date).font(.caption2)
                 Text(show.location).font(.system(size: 9)).foregroundStyle(.secondary).lineLimit(1)
             }
-            .frame(width: 118, alignment: .leading)
+            .frame(width: cardWidth, alignment: .leading)
         }
         .buttonStyle(.plain)
     }
 }
 
 struct ShowCard: View {
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     let show: Show
 
     var body: some View {
         NavigationLink { ShowDetailView(show: show) } label: {
             VStack(alignment: .leading, spacing: 6) {
-                PosterArtwork(index: show.artwork).frame(height: 156).clipShape(RoundedRectangle(cornerRadius: 13))
+                PosterArtwork(index: show.artwork)
+                    .frame(height: horizontalSizeClass == .regular ? 240 : 156)
+                    .clipShape(RoundedRectangle(cornerRadius: 13))
                 Text(show.title).font(.caption.weight(.bold)).lineLimit(1)
                 Text(show.date).font(.caption2)
                 Text(show.location).font(.system(size: 9)).foregroundStyle(.secondary).lineLimit(1)
@@ -586,6 +617,7 @@ struct MyPageView: View {
                     }
                 }
                 .padding(16)
+                .adaptivePage(maxWidth: 760)
             }
             .background(CrocTheme.canvas)
             .toolbar(.hidden, for: .navigationBar)
@@ -1029,8 +1061,23 @@ struct CrocPrimaryButtonStyle: ButtonStyle {
 }
 
 private extension View {
+    func adaptivePage(maxWidth: CGFloat) -> some View {
+        modifier(AdaptivePageModifier(maxWidth: maxWidth))
+    }
+
     func crocCard() -> some View {
         background(.white, in: RoundedRectangle(cornerRadius: 15))
             .shadow(color: CrocTheme.cardShadow, radius: 8, y: 3)
+    }
+}
+
+private struct AdaptivePageModifier: ViewModifier {
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    let maxWidth: CGFloat
+
+    func body(content: Content) -> some View {
+        content
+            .frame(maxWidth: horizontalSizeClass == .regular ? maxWidth : .infinity)
+            .frame(maxWidth: .infinity)
     }
 }
