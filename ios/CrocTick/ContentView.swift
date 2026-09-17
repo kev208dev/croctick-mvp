@@ -9,7 +9,7 @@ struct Place: Identifiable {
     let artwork: Int
 }
 
-struct Show: Identifiable {
+struct Show: Identifiable, Codable {
     let id: String
     let title: String
     let date: String
