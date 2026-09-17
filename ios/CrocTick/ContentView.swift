@@ -42,6 +42,7 @@ enum AppTab: Int, CaseIterable, Identifiable {
 }
 
 struct ContentView: View {
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @State private var selectedTab: AppTab = .home
     @State private var selectedShowCategory = "추천순"
     @State private var showMenu = false
@@ -88,6 +89,7 @@ struct ContentView: View {
                 .presentationDetents([.medium, .large])
                 .presentationDragIndicator(.visible)
         }
+        .dynamicTypeSize(horizontalSizeClass == .regular ? .xxLarge : .xLarge)
     }
 
     private func openShows(category: String) {
@@ -120,7 +122,7 @@ struct CrocTabBar: View {
                 .accessibilityAddTraits(selection == tab ? .isSelected : [])
             }
         }
-        .frame(height: 58)
+        .frame(height: 68)
         .background(Color.black.ignoresSafeArea(edges: .bottom))
     }
 }
@@ -156,9 +158,9 @@ struct RoundIconButton: View {
     var body: some View {
         Button(action: action) {
             Image(systemName: icon)
-                .font(.system(size: 16, weight: .medium))
+                .font(.system(size: 19, weight: .medium))
                 .foregroundStyle(CrocTheme.ink)
-                .frame(width: 34, height: 34)
+                .frame(width: 42, height: 42)
                 .background(.white.opacity(0.34), in: Circle())
         }
         .buttonStyle(.plain)
@@ -184,7 +186,7 @@ struct SearchPill: View {
         .font(.subheadline)
         .foregroundStyle(.secondary)
         .padding(.horizontal, 14)
-        .frame(height: 44)
+        .frame(height: 52)
         .background(.white.opacity(0.72), in: Capsule())
     }
 }
@@ -196,11 +198,11 @@ struct SectionHeader: View {
 
     var body: some View {
         HStack {
-            Text(title).font(.headline)
+            Text(title).font(.title3.weight(.semibold))
             Spacer()
             if let action {
                 Button(actionTitle, action: action)
-                    .font(.caption2.weight(.medium))
+                    .font(.subheadline.weight(.medium))
                     .foregroundStyle(.secondary)
             }
         }
@@ -232,7 +234,7 @@ struct HomeView: View {
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 0) {
                     ZStack(alignment: .top) {
-                        OrangeHero().frame(height: isRegular ? 390 : 318)
+                        OrangeHero().frame(height: isRegular ? 420 : 340)
                         VStack(alignment: .leading, spacing: 16) {
                             TopBar(
                                 onMenu: onMenu,
@@ -243,14 +245,14 @@ struct HomeView: View {
                             )
                             .padding(.top, 6)
                             VStack(alignment: .leading, spacing: 3) {
-                                Text("Find your stage").font(.caption).foregroundStyle(CrocTheme.ink.opacity(0.62))
+                                Text("Find your stage").font(.subheadline).foregroundStyle(CrocTheme.ink.opacity(0.62))
                                 Text("무대 위\n스타를\n우리 집 앞으로")
-                                    .font(.system(size: 27, weight: .black))
+                                    .font(.system(size: isRegular ? 40 : 34, weight: .black))
                                     .lineSpacing(-3)
                             }
                             .overlay(alignment: .topTrailing) {
                                 Image(systemName: "music.note.list")
-                                    .font(.system(size: 54))
+                                    .font(.system(size: isRegular ? 68 : 60))
                                     .foregroundStyle(.white.opacity(0.58))
                                     .rotationEffect(.degrees(-14))
                                     .offset(x: -4, y: 10)
@@ -341,7 +343,7 @@ struct PlaceCard: View {
                     .frame(width: cardWidth, height: horizontalSizeClass == .regular ? 112 : 72)
                     .clipShape(RoundedRectangle(cornerRadius: 9))
                 Text(place.name).font(.caption2.weight(.bold)).lineLimit(1)
-                Text(place.location).font(.system(size: 8)).foregroundStyle(.secondary).lineLimit(1)
+                Text(place.location).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
                 RatingView(value: place.rating)
             }
             .frame(width: cardWidth, alignment: .leading)
@@ -524,7 +526,7 @@ struct CompactShowCard: View {
                     .clipShape(RoundedRectangle(cornerRadius: 12))
                 Text(show.title).font(.caption.weight(.bold)).lineLimit(1)
                 Text(show.date).font(.caption2)
-                Text(show.location).font(.system(size: 9)).foregroundStyle(.secondary).lineLimit(1)
+                Text(show.location).font(.caption).foregroundStyle(.secondary).lineLimit(1)
             }
             .frame(width: cardWidth, alignment: .leading)
         }
@@ -544,12 +546,12 @@ struct ShowCard: View {
                     .clipShape(RoundedRectangle(cornerRadius: 13))
                 Text(show.title).font(.caption.weight(.bold)).lineLimit(1)
                 Text(show.date).font(.caption2)
-                Text(show.location).font(.system(size: 9)).foregroundStyle(.secondary).lineLimit(1)
+                Text(show.location).font(.caption).foregroundStyle(.secondary).lineLimit(1)
                 HStack {
                     Text("\(Int(show.progress * 100))% funded")
-                        .font(.system(size: 9, weight: .bold)).foregroundStyle(CrocTheme.orange)
+                        .font(.caption.weight(.bold)).foregroundStyle(CrocTheme.orange)
                     Spacer()
-                    Text("30 tickets").font(.system(size: 9)).foregroundStyle(.secondary)
+                    Text("30 tickets").font(.caption).foregroundStyle(.secondary)
                 }
                 ProgressView(value: show.progress).tint(CrocTheme.orange)
             }
@@ -685,11 +687,11 @@ struct TicketRow: View {
                 Text(show.id == "show-pocket" ? "Pocket Music Fest" : show.title)
                     .font(.caption.weight(.bold)).lineLimit(1)
                 Text("\(show.date) · 18:00\n한마음 교회 · 일반석 1매")
-                    .font(.system(size: 9)).foregroundStyle(.secondary)
+                        .font(.caption).foregroundStyle(.secondary)
             }
             Spacer(minLength: 4)
             Text("티켓 보기 →")
-                .font(.system(size: 9, weight: .bold)).foregroundStyle(.white)
+                .font(.caption.weight(.bold)).foregroundStyle(.white)
                 .padding(8).background(CrocTheme.orange, in: Capsule())
         }
         .padding(10)
