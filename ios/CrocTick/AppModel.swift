@@ -15,19 +15,35 @@ final class AppModel: ObservableObject {
             }
         }
     }
-    @Published var selectedPlace: Place?
-
+    @Published var registeredPlaces: [Place] = [] {
+        didSet {
+            if let data = try? JSONEncoder().encode(registeredPlaces) {
+                UserDefaults.standard.set(data, forKey: "crocTick.registeredPlaces")
+            }
+        }
+    }
     init() {
         let savedName = UserDefaults.standard.string(forKey: "crocTick.userName")
         userName = savedName == nil || savedName == "이채호" ? "김청휘" : savedName!
-        joinedShowIDs = Set(UserDefaults.standard.stringArray(forKey: "crocTick.joinedShowIDs") ?? [])
+        if let savedTickets = UserDefaults.standard.stringArray(forKey: "crocTick.joinedShowIDs") {
+            joinedShowIDs = Set(savedTickets)
+        } else {
+            joinedShowIDs = ["show-pocket"]
+        }
         if let data = UserDefaults.standard.data(forKey: "crocTick.createdShows"),
            let savedShows = try? JSONDecoder().decode([Show].self, from: data) {
             createdShows = savedShows
         }
+        if let data = UserDefaults.standard.data(forKey: "crocTick.registeredPlaces"),
+           let savedPlaces = try? JSONDecoder().decode([Place].self, from: data) {
+            registeredPlaces = savedPlaces
+        } else {
+            registeredPlaces = [samplePlaces[1]]
+        }
     }
 
     var allShows: [Show] { createdShows + sampleShows }
+    var joinedShows: [Show] { allShows.filter { joinedShowIDs.contains($0.id) } }
 
     func join(_ show: Show) {
         joinedShowIDs.insert(show.id)
@@ -35,5 +51,9 @@ final class AppModel: ObservableObject {
 
     func add(show: Show) {
         createdShows.insert(show, at: 0)
+    }
+
+    func add(place: Place) {
+        registeredPlaces.insert(place, at: 0)
     }
 }
