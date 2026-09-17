@@ -27,20 +27,49 @@ let samplePlaces = [
 ]
 
 let sampleShows = [
-    Show(id: "show-sultan", title: "술탄 오브 더 디스코", date: "10/24–10/25", location: "경기도 시흥 시흥교회", category: "Music", progress: 0.82, artwork: 0),
-    Show(id: "show-pocket", title: "Pocket Music Fest", date: "10.03 (토) · 18:00", location: "한울교회 · 30석", category: "Music", progress: 0.64, artwork: 1),
-    Show(id: "show-oasis", title: "Oasis concert", date: "12/02–12/15", location: "망원동 카페 웨이브", category: "Lo-fi", progress: 0.47, artwork: 2),
-    Show(id: "show-indie", title: "Indie Band Bon", date: "11/24–12/01", location: "서울 성동구", category: "Band", progress: 0.71, artwork: 3)
+    Show(id: "show-sultan", title: "술탄 오브 더 디스코", date: "10/24~10/25", location: "경기도 시흥시 능곡동", category: "Solo concert", progress: 0.82, artwork: 0),
+    Show(id: "show-pocket", title: "Poket Music Fst", date: "10/3~10/5", location: "Dragon phony,Han...", category: "Music", progress: 0.64, artwork: 1),
+    Show(id: "show-oasis", title: "Oasis concert", date: "12/12~12/15", location: "Oasis", category: "Lo-fi", progress: 0.47, artwork: 2),
+    Show(id: "show-indie", title: "Indie Band Bond", date: "11/24~12/1", location: "Silica Gell", category: "Band", progress: 0.71, artwork: 3)
 ]
 
 struct ContentView: View {
+    @State private var selectedTab = 0
+
     var body: some View {
-        TabView {
-            HomeView().tabItem { Label("홈", systemImage: "house.fill") }
-            ShowsView().tabItem { Label("공연", systemImage: "ticket.fill") }
-            MyPageView().tabItem { Label("마이", systemImage: "person.fill") }
+        Group {
+            switch selectedTab {
+            case 1: ShowsView()
+            case 2: MyPageView()
+            default: HomeView()
+            }
         }
-        .tint(CrocTheme.orange)
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            CrocTabBar(selection: $selectedTab)
+        }
+    }
+}
+
+struct CrocTabBar: View {
+    @Binding var selection: Int
+    private let tabs = [("홈", "house.fill"), ("공연", "ticket.fill"), ("마이", "person.fill")]
+
+    var body: some View {
+        HStack(spacing: 0) {
+            ForEach(tabs.indices, id: \.self) { index in
+                Button { selection = index } label: {
+                    VStack(spacing: 5) {
+                        Image(systemName: tabs[index].1).font(.system(size: 21, weight: .semibold))
+                        Text(tabs[index].0).font(.caption2.weight(.semibold))
+                    }
+                    .foregroundStyle(selection == index ? CrocTheme.orange : .white)
+                    .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .frame(height: 79)
+        .background(Color.black)
     }
 }
 
