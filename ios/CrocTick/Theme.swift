@@ -63,10 +63,15 @@ struct PosterArtwork: View {
 }
 
 struct CrocLogo: View {
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+
     var body: some View {
         Image("croc-logo")
             .resizable()
             .scaledToFit()
-            .frame(width: 40, height: 40)
+            .frame(
+                width: horizontalSizeClass == .regular ? 68 : 58,
+                height: horizontalSizeClass == .regular ? 68 : 58
+            )
     }
 }

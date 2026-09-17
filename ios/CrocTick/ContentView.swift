@@ -133,16 +133,18 @@ struct TopBar: View {
     let trailingAction: () -> Void
 
     var body: some View {
-        HStack {
-            RoundIconButton(icon: "line.3.horizontal", label: "메뉴", action: onMenu)
-            Spacer()
+        ZStack {
             CrocLogo().accessibilityLabel("CrocTick")
-            Spacer()
-            HStack(spacing: 8) {
-                RoundIconButton(icon: "bell", label: "알림", action: onNotifications)
-                RoundIconButton(icon: trailingIcon, label: trailingLabel, action: trailingAction)
+            HStack {
+                RoundIconButton(icon: "line.3.horizontal", label: "메뉴", action: onMenu)
+                Spacer(minLength: 0)
+                HStack(spacing: 8) {
+                    RoundIconButton(icon: "bell", label: "알림", action: onNotifications)
+                    RoundIconButton(icon: trailingIcon, label: trailingLabel, action: trailingAction)
+                }
             }
         }
+        .frame(maxWidth: .infinity, minHeight: 68)
     }
 }
 
