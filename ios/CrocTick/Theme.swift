@@ -42,6 +42,26 @@ struct PlaceArtwork: View {
     }
 }
 
+struct PosterArtwork: View {
+    let index: Int
+
+    var body: some View {
+        Image(posterImageName(index))
+            .resizable()
+            .scaledToFill()
+            .clipped()
+    }
+
+    private func posterImageName(_ index: Int) -> String {
+        switch index {
+        case 0: return "poster-sultan"
+        case 1: return "poster-pocket"
+        case 2: return "poster-oasis"
+        default: return "poster-indie"
+        }
+    }
+}
+
 struct CrocLogo: View {
     var body: some View {
         Image("croc-logo")
