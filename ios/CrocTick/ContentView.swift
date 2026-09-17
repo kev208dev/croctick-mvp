@@ -89,6 +89,7 @@ struct SectionHeader: View {
 struct HomeView: View {
     @State private var query = ""
     @State private var selectedCategory = "Calm"
+    @State private var showPlaces = false
     var body: some View {
         NavigationStack {
             ScrollView(showsIndicators: false) {
@@ -107,7 +108,7 @@ struct HomeView: View {
                         .padding(.horizontal, 16)
                     }
                     VStack(alignment: .leading, spacing: 14) {
-                        SectionHeader(title: "Recommend")
+                        SectionHeader(title: "Recommend", action: { showPlaces = true })
                         NavigationLink { PlaceListView() } label: {
                             HStack(spacing: 10) {
                                 PlaceArtwork(index: 0).frame(width: 76, height: 76).clipShape(RoundedRectangle(cornerRadius: 11))
@@ -116,7 +117,7 @@ struct HomeView: View {
                             }
                             .padding(9).background(.white, in: RoundedRectangle(cornerRadius: 15)).shadow(color: CrocTheme.cardShadow, radius: 8, y: 3)
                         }.buttonStyle(.plain)
-                        SectionHeader(title: "Place")
+                        SectionHeader(title: "Place", action: { showPlaces = true })
                         ScrollView(.horizontal, showsIndicators: false) { HStack(spacing: 8) { ForEach(samplePlaces) { PlaceCard(place: $0) } } }
                         SectionHeader(title: "Categories")
                         HStack(spacing: 8) { ForEach(["Calm", "Band", "Lo-fi", "Jazz"], id: \.self) { category in Button { selectedCategory = category } label: { Text(category).font(.caption).foregroundStyle(selectedCategory == category ? .white : CrocTheme.ink).padding(.horizontal, 16).padding(.vertical, 8).background(selectedCategory == category ? CrocTheme.ink : .white, in: Capsule()).overlay(Capsule().stroke(.quaternary)) } } }
@@ -126,6 +127,7 @@ struct HomeView: View {
             }
             .background(CrocTheme.canvas)
             .toolbar(.hidden, for: .navigationBar)
+            .sheet(isPresented: $showPlaces) { NavigationStack { PlaceListView() } }
         }
     }
 }
@@ -140,6 +142,7 @@ struct ShowsView: View {
     @State private var query = ""
     @State private var category = "추천순"
     @State private var highFundingOnly = false
+    @State private var showAll = false
     var filtered: [Show] {
         let categoryMap = ["잔잔한": "Lo-fi", "신나는": "Music", "나만 아는": "Band"]
         return model.allShows
@@ -169,7 +172,7 @@ struct ShowsView: View {
                                 .background(highFundingOnly ? CrocTheme.ink : .white, in: Circle())
                         }
                     }
-                    SectionHeader(title: "Recommend")
+                    SectionHeader(title: "Recommend", action: { showAll = true })
                     LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
                         ForEach(filtered) { ShowCard(show: $0) }
                     }
@@ -178,6 +181,7 @@ struct ShowsView: View {
             }
             .background(CrocTheme.canvas)
             .toolbar(.hidden, for: .navigationBar)
+            .sheet(isPresented: $showAll) { ShowsView() }
         }
     }
 }
