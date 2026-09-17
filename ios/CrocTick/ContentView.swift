@@ -623,16 +623,7 @@ struct MyPageView: View {
                 .padding(16)
                 .adaptivePage(maxWidth: 760)
             }
-            .background {
-                ZStack(alignment: .top) {
-                    CrocTheme.canvas
-                    OrangeHero()
-                        .opacity(0.18)
-                        .frame(height: 300)
-                        .frame(maxWidth: .infinity)
-                }
-                .ignoresSafeArea()
-            }
+            .background(OrangeHero().opacity(0.68).ignoresSafeArea())
             .toolbar(.hidden, for: .navigationBar)
             .sheet(isPresented: $showCreate) { CreateShowView() }
             .sheet(isPresented: $showSettings) { SettingsView() }
