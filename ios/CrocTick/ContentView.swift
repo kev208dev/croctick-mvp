@@ -59,6 +59,16 @@ struct Show: Identifiable, Codable {
         self.fundingGoal = fundingGoal
         self.posterData = posterData
     }
+
+    static func conflicts(_ lhs: Show, _ rhs: Show) -> Bool {
+        lhs.id != rhs.id &&
+        lhs.location.trimmingCharacters(in: .whitespacesAndNewlines).localizedCaseInsensitiveCompare(rhs.location.trimmingCharacters(in: .whitespacesAndNewlines)) == .orderedSame &&
+        lhs.date == rhs.date
+    }
+
+    static func defaultPosterData(for place: Place?) -> Data? {
+        place?.photoData
+    }
 }
 
 let samplePlaces = [
@@ -1088,6 +1098,20 @@ struct CreateShowView: View {
     @State private var artwork = 0
     @State private var selectedPoster: PhotosPickerItem?
     @State private var posterData: Data?
+    @State private var useVenueImage = true
+    @State private var showScheduleConflict = false
+
+    private var selectedPlace: Place? {
+        model.allPlaces.first { $0.name == place }
+    }
+
+    private var resolvedPosterData: Data? {
+        posterData ?? (useVenueImage ? Show.defaultPosterData(for: selectedPlace) : nil)
+    }
+
+    private var resolvedArtwork: Int {
+        useVenueImage && posterData == nil ? (selectedPlace?.artwork ?? artwork) : artwork
+    }
 
     private var isValid: Bool {
         !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
@@ -1120,10 +1144,11 @@ struct CreateShowView: View {
                     PhotosPicker(selection: $selectedPoster, matching: .images) {
                         Label(posterData == nil ? "사진 보관함에서 포스터 선택" : "선택한 포스터 변경", systemImage: "photo.on.rectangle")
                     }
+                    Toggle("공간 대표 사진을 포스터로 사용", isOn: $useVenueImage)
                     Picker("기본 포스터 디자인", selection: $artwork) {
                         ForEach(0..<4, id: \.self) { index in Text("디자인 \(index + 1)").tag(index) }
                     }
-                    PosterArtwork(index: artwork, data: posterData)
+                    PosterArtwork(index: resolvedArtwork, data: resolvedPosterData)
                         .frame(height: 210)
                         .clipShape(RoundedRectangle(cornerRadius: 14))
                 }
@@ -1136,14 +1161,18 @@ struct CreateShowView: View {
                             location: place,
                             category: category,
                             progress: 0,
-                            artwork: artwork,
+                            artwork: resolvedArtwork,
                             introduction: introduction.trimmingCharacters(in: .whitespacesAndNewlines),
                             artists: artists.trimmingCharacters(in: .whitespacesAndNewlines),
                             ticketPrice: Int(price),
                             targetAudience: Int(audience),
                             fundingGoal: Int(fundingGoal),
-                            posterData: posterData
+                            posterData: resolvedPosterData
                         )
+                        guard !model.hasScheduleConflict(for: show) else {
+                            showScheduleConflict = true
+                            return
+                        }
                         model.add(show: show)
                         dismiss()
                     }
@@ -1154,6 +1183,12 @@ struct CreateShowView: View {
             .onAppear { place = defaultPlace }
             .task(id: selectedPoster) {
                 posterData = try? await selectedPoster?.loadTransferable(type: Data.self)
+                if posterData != nil { useVenueImage = false }
+            }
+            .alert("이미 같은 시간에 잡힌 공연이 있어요", isPresented: $showScheduleConflict) {
+                Button("확인", role: .cancel) {}
+            } message: {
+                Text("\(place)에서 \(date.formatted(date: .abbreviated, time: .shortened))에 이미 다른 공연이 열립니다. 시간 또는 공간을 바꿔 주세요.")
             }
             .toolbar { ToolbarItem(placement: .cancellationAction) { Button("닫기") { dismiss() } } }
         }

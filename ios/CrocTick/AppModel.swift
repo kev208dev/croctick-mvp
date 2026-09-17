@@ -88,6 +88,10 @@ final class AppModel: ObservableObject {
     var joinedShows: [Show] { allShows.filter { joinedShowIDs.contains($0.id) } }
     var tickTier: TickTier { TickTier.level(for: tickBalance) }
 
+    func hasScheduleConflict(for show: Show) -> Bool {
+        allShows.contains { Show.conflicts($0, show) }
+    }
+
     func join(_ show: Show) {
         guard joinedShowIDs.insert(show.id).inserted else { return }
         fundingContributions[show.id, default: 0] += show.ticketPrice ?? 15_000
