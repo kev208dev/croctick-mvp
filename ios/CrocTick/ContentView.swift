@@ -618,6 +618,7 @@ struct MyPageView: View {
     @State private var showSettings = false
     @State private var showTickets = false
     @State private var showSpaceRegistration = false
+    @State private var showTickSystem = false
 
     var body: some View {
         NavigationStack {
@@ -647,6 +648,9 @@ struct MyPageView: View {
                     }
                     .padding(14)
                     .crocCard()
+                    TickSummaryCard(tick: model.tickBalance, tier: model.tickTier) {
+                        showTickSystem = true
+                    }
                     SectionHeader(title: "My ticket", actionTitle: "전체 보기", action: { showTickets = true })
                     ForEach(model.joinedShows.prefix(2)) { show in
                         NavigationLink { ShowDetailView(show: show) } label: { TicketRow(show: show) }
@@ -676,7 +680,156 @@ struct MyPageView: View {
             .sheet(isPresented: $showSettings) { SettingsView() }
             .sheet(isPresented: $showTickets) { TicketListView() }
             .sheet(isPresented: $showSpaceRegistration) { RegisterSpaceView() }
+            .sheet(isPresented: $showTickSystem) { TickSystemView() }
         }
+    }
+}
+
+struct TickSummaryCard: View {
+    let tick: Int
+    let tier: TickTier
+    let action: () -> Void
+
+    private var nextTier: TickTier? {
+        TickTier.all.first { $0.minimumTick > tick }
+    }
+
+    private var progress: Double {
+        guard let nextTier else { return 1 }
+        let span = max(nextTier.minimumTick - tier.minimumTick, 1)
+        return min(1, Double(tick - tier.minimumTick) / Double(span))
+    }
+
+    var body: some View {
+        Button(action: action) {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(alignment: .top) {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("내 틱 정산").font(.title3.bold())
+                        Text("성장 단계별 공연 규모와 티켓 정책").font(.caption).foregroundStyle(.white.opacity(0.66))
+                    }
+                    Spacer()
+                    Image(systemName: "chevron.right").font(.caption.bold()).foregroundStyle(.white.opacity(0.72))
+                }
+                HStack(spacing: 12) {
+                    TickTierBadge(tier: tier, size: 52)
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(tier.name).font(.title2.bold())
+                        Text(tier.rangeLabel).font(.caption.weight(.semibold)).foregroundStyle(tier.accent)
+                    }
+                    Spacer()
+                    VStack(alignment: .trailing, spacing: 2) {
+                        Text("\(tick)").font(.system(size: 32, weight: .black, design: .rounded))
+                        Text("TICK").font(.caption2.weight(.bold)).foregroundStyle(.white.opacity(0.66))
+                    }
+                }
+                ProgressView(value: progress).tint(tier.accent)
+                Text(nextTier.map { "다음 \($0.name)까지 \(max($0.minimumTick - tick, 0)) Tick 남음" } ?? "최상위 Headliner 등급이에요")
+                    .font(.caption.weight(.medium)).foregroundStyle(.white.opacity(0.74))
+            }
+            .padding(18)
+            .background(Color(red: 0.07, green: 0.08, blue: 0.11), in: RoundedRectangle(cornerRadius: 22))
+            .overlay(RoundedRectangle(cornerRadius: 22).stroke(tier.accent.opacity(0.45), lineWidth: 1))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("내 틱 정산, \(tier.name), \(tick) Tick")
+    }
+}
+
+struct TickSystemView: View {
+    @EnvironmentObject private var model: AppModel
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+
+    private var columns: [GridItem] {
+        [GridItem(.adaptive(minimum: horizontalSizeClass == .regular ? 230 : 165), spacing: 12)]
+    }
+
+    var body: some View {
+        NavigationStack {
+            ScrollView(showsIndicators: false) {
+                VStack(alignment: .leading, spacing: 20) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("틱 정산 시스템").font(.largeTitle.bold())
+                        Text("성장 단계별 공연 규모와 티켓 정책").foregroundStyle(.secondary)
+                    }
+                    TickSummaryCard(tick: model.tickBalance, tier: model.tickTier, action: {})
+                        .allowsHitTesting(false)
+                    Text("전체 레벨").font(.title3.bold())
+                    LazyVGrid(columns: columns, spacing: 12) {
+                        ForEach(TickTier.all) { tier in
+                            TickTierCard(tier: tier, isCurrent: tier == model.tickTier)
+                        }
+                    }
+                    Text("틱 획득 방법 · 펀딩 참여 +1 · 공간 등록 +5 · 공연 등록 +10")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+                .padding(20)
+                .adaptivePage(maxWidth: 980)
+            }
+            .background(CrocTheme.canvas)
+            .navigationTitle("내 틱 정산")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("닫기") { dismiss() } } }
+        }
+    }
+}
+
+struct TickTierCard: View {
+    let tier: TickTier
+    let isCurrent: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 15) {
+            HStack(alignment: .top) {
+                TickTierBadge(tier: tier, size: 44)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(tier.name).font(.headline.bold())
+                    Text(tier.rangeLabel).font(.caption2.weight(.bold)).foregroundStyle(tier.accent)
+                }
+                Spacer()
+                if isCurrent { Text("CURRENT").font(.caption2.bold()).foregroundStyle(tier.accent) }
+            }
+            VStack(alignment: .leading, spacing: 3) {
+                Text("최저 티켓가 설정 한도").font(.caption2).foregroundStyle(.white.opacity(0.52))
+                Text(tier.ticketLimit).font(.title2.bold())
+                Text("/ 1매").font(.caption2).foregroundStyle(.white.opacity(0.52))
+            }
+            Divider().overlay(.white.opacity(0.16))
+            Label(tier.venueDescription, systemImage: "checkmark.circle.fill")
+                .font(.caption.weight(.semibold)).foregroundStyle(.white.opacity(0.9))
+            VStack(alignment: .leading, spacing: 3) {
+                Text("최대 관객").font(.caption2).foregroundStyle(.white.opacity(0.52))
+                Text(tier.audienceLabel).font(.title2.bold())
+            }
+            ProgressView(value: isCurrent ? 1 : 0).tint(tier.accent).opacity(isCurrent ? 1 : 0.45)
+            Text(tier.note).font(.caption2).foregroundStyle(.white.opacity(0.52)).frame(minHeight: 28, alignment: .topLeading)
+            if tier.isTopLevel {
+                Text("TOP LEVEL").font(.caption2.bold()).foregroundStyle(.white).padding(.horizontal, 10).padding(.vertical, 6).background(tier.accent, in: Capsule())
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, minHeight: 300, alignment: .topLeading)
+        .background(tier.isTopLevel ? Color(red: 0.09, green: 0.22, blue: 0.35) : Color(red: 0.07, green: 0.08, blue: 0.11), in: RoundedRectangle(cornerRadius: 20))
+        .overlay(RoundedRectangle(cornerRadius: 20).stroke(isCurrent ? tier.accent : .white.opacity(0.08), lineWidth: isCurrent ? 2 : 1))
+    }
+}
+
+struct TickTierBadge: View {
+    let tier: TickTier
+    let size: CGFloat
+
+    var body: some View {
+        Group {
+            if tier.symbol == "R" || tier.symbol == "R+" {
+                Text(tier.symbol).font(.system(size: size * 0.42, weight: .black, design: .rounded))
+            } else {
+                Image(systemName: tier.symbol).font(.system(size: size * 0.42, weight: .bold))
+            }
+        }
+        .foregroundStyle(.white)
+        .frame(width: size, height: size)
+        .background(tier.accent, in: RoundedRectangle(cornerRadius: size * 0.28))
     }
 }
 

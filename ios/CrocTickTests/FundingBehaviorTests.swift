@@ -4,9 +4,13 @@ import SwiftUI
 @MainActor
 struct FundingBehaviorTests {
     static func main() {
+        let rising = TickTier.level(for: 20)
+        precondition(rising.name == "Rising", "20 Tick부터 Rising 등급이어야 합니다.")
+        precondition(rising.maxAudience == 80, "Rising 등급의 최대 관객 수는 80명이어야 합니다.")
+
         let model = AppModel()
         let show = Show(
-            id: "funding-test-show",
+            id: "funding-test-show-\(UUID().uuidString)",
             title: "펀딩 테스트 공연",
             date: "2026.10.01",
             location: "테스트 공간",
