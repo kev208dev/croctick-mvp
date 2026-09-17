@@ -146,7 +146,9 @@ struct TopBar: View {
                 }
             }
         }
-        .frame(maxWidth: .infinity, minHeight: 68)
+        .frame(maxWidth: .infinity, alignment: .top)
+        .frame(height: 76, alignment: .top)
+        .padding(.top, 4)
     }
 }
 
@@ -243,7 +245,6 @@ struct HomeView: View {
                                 trailingLabel: "마이페이지",
                                 trailingAction: onProfile
                             )
-                            .padding(.top, 6)
                             VStack(alignment: .leading, spacing: 3) {
                                 Text("Find your stage").font(.subheadline).foregroundStyle(CrocTheme.ink.opacity(0.62))
                                 Text("무대 위\n스타를\n우리 집 앞으로")
@@ -408,7 +409,6 @@ struct ShowsView: View {
                         trailingLabel: "마이페이지",
                         trailingAction: onProfile
                     )
-                    .padding(.top, 6)
                     SearchPill(text: $query).background(CrocTheme.peach.opacity(0.33), in: Capsule())
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 7) {
