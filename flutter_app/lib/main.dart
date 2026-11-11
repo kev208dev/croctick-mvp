@@ -1,16 +1,59 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'store.dart';
+import 'tick_page.dart';
+import 'catalog_widgets.dart';
+import 'figma_browse.dart';
 
 const orange = Color(0xffeb6c12),
     canvas = Color(0xfff8f3f0),
     ink = Color(0xff3d2d17);
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(CrocApp(store: Store(await SharedPreferences.getInstance())));
+  final store = Store(await SharedPreferences.getInstance());
+  if (store.loadFailed) {
+    runApp(
+      MaterialApp(
+        home: Scaffold(
+          body: SafeArea(
+            child: Center(
+              child: Padding(
+                padding: const EdgeInsets.all(32),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.storage_rounded, size: 48),
+                    const SizedBox(height: 20),
+                    const Text(
+                      '저장된 기록을 읽지 못했어요',
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    const Text(
+                      '기존 데이터는 그대로 보존했습니다. 앱을 다시 실행해 주세요. 문제가 계속되면 기록을 백업한 뒤 복구가 필요합니다.',
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 24),
+                    FilledButton(onPressed: main, child: const Text('다시 시도')),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    return;
+  }
+  await store.save();
+  runApp(CrocApp(store: store));
 }
 
 String money(dynamic n) =>
@@ -34,6 +77,7 @@ class CrocApp extends StatelessWidget {
     title: 'CrocTick',
     theme: ThemeData(
       useMaterial3: true,
+      fontFamily: 'Pretendard',
       colorScheme: ColorScheme.fromSeed(seedColor: orange),
       scaffoldBackgroundColor: canvas,
       navigationBarTheme: NavigationBarThemeData(
@@ -78,14 +122,35 @@ class CrocApp extends StatelessWidget {
 class Artwork extends StatelessWidget {
   final String path;
   final double height;
-  const Artwork(this.path, {super.key, this.height = 180});
+  final Record? item;
+  final bool isPlace;
+  const Artwork(
+    this.path, {
+    super.key,
+    this.height = 180,
+    this.item,
+    this.isPlace = false,
+  });
   @override
   Widget build(BuildContext c) => ClipRRect(
     borderRadius: BorderRadius.circular(16),
     child: SizedBox(
       height: height,
       width: double.infinity,
-      child: path.startsWith('assets/')
+      child: path.isEmpty && item != null
+          ? CatalogArtwork(item: item!, isPlace: isPlace, height: height)
+          : path.isEmpty
+          ? const ColoredBox(
+              color: Color(0xffe9e0d8),
+              child: Center(
+                child: Icon(
+                  Icons.add_photo_alternate_outlined,
+                  size: 40,
+                  color: Color(0xff9b8268),
+                ),
+              ),
+            )
+          : path.startsWith('assets/')
           ? Image.asset(path, fit: BoxFit.cover)
           : Image.file(
               File(path),
@@ -106,7 +171,6 @@ class Home extends StatefulWidget {
 
 class _HomeState extends State<Home> {
   int tab = 0;
-  String query = '', genre = '전체';
   Store get s => widget.store;
   Widget card(Widget child, {VoidCallback? tap}) => Card(
     color: Colors.white,
@@ -134,272 +198,128 @@ class _HomeState extends State<Home> {
   Widget build(BuildContext c) => ListenableBuilder(
     listenable: s,
     builder: (c, _) => Scaffold(
-      appBar: AppBar(
-        leading: PopupMenuButton<int>(
-          onSelected: (i) => setState(() => tab = i),
-          itemBuilder: (_) => List.generate(
-            3,
-            (i) => PopupMenuItem(
-              value: i,
-              child: Text(['홈 · 공간', '공연', '마이페이지'][i]),
+      backgroundColor: tab == 2 ? canvas : orange,
+      appBar: tab == 2
+          ? AppBar(
+              leading: PopupMenuButton<int>(
+                onSelected: (i) => setState(() => tab = i),
+                itemBuilder: (_) => List.generate(
+                  3,
+                  (i) => PopupMenuItem(
+                    value: i,
+                    child: Text(['홈 · 공간', '공연', '마이페이지'][i]),
+                  ),
+                ),
+              ),
+              title: Image.asset('assets/croc-logo.png', height: 62),
+              toolbarHeight: 80,
+              actions: [
+                IconButton(
+                  tooltip: '활동 내역',
+                  icon: const Icon(Icons.notifications_none),
+                  onPressed: () => open(c, TickPage(store: s)),
+                ),
+                IconButton(
+                  tooltip: '설정',
+                  icon: const Icon(Icons.settings_outlined),
+                  onPressed: () => open(c, SettingsPage(store: s)),
+                ),
+              ],
+            )
+          : null,
+      body: tab != 2
+          ? AnnotatedRegion<SystemUiOverlayStyle>(
+              value: const SystemUiOverlayStyle(
+                statusBarColor: Colors.transparent,
+                statusBarIconBrightness: Brightness.dark,
+                statusBarBrightness: Brightness.light,
+                systemNavigationBarColor: Color(0xff17130f),
+                systemNavigationBarIconBrightness: Brightness.light,
+              ),
+              child: SafeArea(
+                top: false,
+                bottom: false,
+                child: FigmaBrowse(
+                  key: ValueKey(tab),
+                  store: s,
+                  isPlace: tab == 0,
+                  onMenu: () => showModalBottomSheet<void>(
+                    context: c,
+                    builder: (sheet) => SafeArea(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          ListTile(
+                            leading: const Icon(Icons.add_business_outlined),
+                            title: const Text('공간 등록 +'),
+                            onTap: () {
+                              Navigator.pop(sheet);
+                              open(c, Registration(store: s, isPlace: true));
+                            },
+                          ),
+                          ListTile(
+                            leading: const Icon(Icons.add_circle_outline),
+                            title: const Text('공연 등록 +'),
+                            onTap: () {
+                              Navigator.pop(sheet);
+                              open(c, Registration(store: s, isPlace: false));
+                            },
+                          ),
+                          ListTile(
+                            leading: const Icon(Icons.settings_outlined),
+                            title: const Text('설정'),
+                            onTap: () {
+                              Navigator.pop(sheet);
+                              open(c, SettingsPage(store: s));
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  onActivity: () => open(c, TickPage(store: s)),
+                  onProfile: () => setState(() => tab = 2),
+                  onSeeAll: () =>
+                      open(c, CatalogPage(store: s, isPlace: tab == 0)),
+                  onOpen: (item, place) =>
+                      open(c, Detail(store: s, item: item, isPlace: place)),
+                  onCategory: (g) => open(
+                    c,
+                    CatalogPage(
+                      store: s,
+                      isPlace: false,
+                      initialGenre: g == 'Calm' ? 'Lo-fi' : g,
+                    ),
+                  ),
+                ),
+              ),
+            )
+          : Container(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [orange, canvas],
+                ),
+              ),
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 1100),
+                  child: ListView(
+                    padding: const EdgeInsets.all(22),
+                    children: myPage(),
+                  ),
+                ),
+              ),
             ),
-          ),
-        ),
-        title: Image.asset('assets/croc-logo.png', height: 62),
-        toolbarHeight: 80,
-        actions: [
-          IconButton(
-            tooltip: '활동 내역',
-            icon: const Icon(Icons.notifications_none),
-            onPressed: () => open(c, TickPage(store: s)),
-          ),
-          IconButton(
-            tooltip: '설정',
-            icon: const Icon(Icons.settings_outlined),
-            onPressed: () => open(c, SettingsPage(store: s)),
-          ),
-        ],
-      ),
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [orange, canvas],
-          ),
-        ),
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 1100),
-            child: ListView(
-              padding: const EdgeInsets.all(22),
-              children: tab == 2 ? myPage() : browse(),
-            ),
-          ),
-        ),
-      ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: tab,
-        onDestinationSelected: (i) => setState(() {
+      bottomNavigationBar: FigmaNavigation(
+        selected: tab,
+        onSelected: (i) => setState(() {
           tab = i;
-          query = '';
         }),
-        destinations: const [
-          NavigationDestination(icon: Icon(Icons.home_outlined), label: '홈'),
-          NavigationDestination(
-            icon: Icon(Icons.confirmation_number_outlined),
-            label: '공연',
-          ),
-          NavigationDestination(icon: Icon(Icons.person_outline), label: '마이'),
-        ],
       ),
     ),
   );
-  List<Widget> browse() {
-    final items = tab == 0 ? s.places : s.shows;
-    final filtered = items
-        .where(
-          (p) =>
-              (p[tab == 0 ? 'name' : 'title'] as String).toLowerCase().contains(
-                query.toLowerCase(),
-              ) &&
-              (tab == 0 || genre == '전체' || p['genre'] == genre),
-        )
-        .toList();
-    return [
-      if (tab == 0)
-        Container(
-          padding: const EdgeInsets.all(26),
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(colors: [orange, Color(0xffffcfac)]),
-            borderRadius: BorderRadius.circular(24),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                tab == 0 ? 'Find your stage' : 'Make the stage happen',
-                style: const TextStyle(fontSize: 18),
-              ),
-              const SizedBox(height: 10),
-              Row(
-                children: [
-                  const Expanded(
-                    child: Text(
-                      '무대 위\n스타를\n우리 집 앞으로',
-                      style: TextStyle(
-                        fontSize: 32,
-                        fontWeight: FontWeight.w900,
-                        color: ink,
-                      ),
-                    ),
-                  ),
-                  Image.asset(
-                    'assets/music-note.png',
-                    width: 90,
-                    height: 110,
-                    fit: BoxFit.contain,
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      const SizedBox(height: 20),
-      TextField(
-        decoration: InputDecoration(
-          labelText: tab == 0 ? '공간 이름 검색' : '공연 이름 검색',
-          prefixIcon: const Icon(Icons.search),
-        ),
-        onChanged: (v) => setState(() => query = v),
-      ),
-      if (tab == 1)
-        Padding(
-          padding: const EdgeInsets.only(top: 12),
-          child: Wrap(
-            spacing: 8,
-            children: ['전체', 'Music', 'Band', 'Lo-fi', 'Jazz']
-                .map(
-                  (v) => ChoiceChip(
-                    label: Text(v),
-                    selected: genre == v,
-                    onSelected: (_) => setState(() => genre = v),
-                  ),
-                )
-                .toList(),
-          ),
-        ),
-      if (query.isEmpty) ...[
-        heading('Recommend', '전체 보기', () => setState(() => query = '')),
-        card(
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      tab == 0
-                          ? s.places.first['name']
-                          : s.shows.first['title'],
-                      style: const TextStyle(
-                        fontSize: 23,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    Text(
-                      tab == 0
-                          ? s.places.first['address']
-                          : dateLabel(s.shows.first['start']),
-                    ),
-                    const Text(
-                      '★★★★★',
-                      style: TextStyle(color: orange, fontSize: 24),
-                    ),
-                  ],
-                ),
-              ),
-              SizedBox(
-                width: 120,
-                child: Artwork(
-                  (tab == 0 ? s.places.first : s.shows.first)['image'],
-                  height: 150,
-                ),
-              ),
-            ],
-          ),
-          tap: () => open(
-            context,
-            Detail(
-              store: s,
-              item: tab == 0 ? s.places.first : s.shows.first,
-              isPlace: tab == 0,
-            ),
-          ),
-        ),
-      ],
-      heading(
-        tab == 0 ? '공간' : '공연',
-        tab == 0 ? '공간 등록 +' : '공연 등록 +',
-        () => open(context, Registration(store: s, isPlace: tab == 0)),
-      ),
-      if (filtered.isEmpty)
-        const Padding(padding: EdgeInsets.all(30), child: Text('검색 결과가 없습니다.')),
-      if (tab == 0)
-        Padding(
-          padding: const EdgeInsets.only(bottom: 16),
-          child: Wrap(
-            spacing: 10,
-            children: ['Calm', 'Band', 'Lo-fi', 'Jazz']
-                .map(
-                  (g) => ActionChip(
-                    label: Text(g),
-                    onPressed: () => setState(() {
-                      tab = 1;
-                      genre = g == 'Calm' ? 'Lo-fi' : g;
-                    }),
-                  ),
-                )
-                .toList(),
-          ),
-        ),
-      LayoutBuilder(
-        builder: (c, b) {
-          final count = b.maxWidth > 800
-              ? 3
-              : b.maxWidth > 550
-              ? 2
-              : 1;
-          return Wrap(
-            spacing: 16,
-            children: filtered
-                .map(
-                  (p) => SizedBox(
-                    width: (b.maxWidth - 16 * (count - 1)) / count,
-                    child: card(
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Artwork(p['image']),
-                          const SizedBox(height: 12),
-                          Text(
-                            p[tab == 0 ? 'name' : 'title'],
-                            style: const TextStyle(
-                              fontSize: 21,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            tab == 0
-                                ? '${p['address']} · 최대 ${p['capacity']}명'
-                                : dateLabel(p['start']),
-                          ),
-                          if (tab == 1) ...[
-                            const SizedBox(height: 10),
-                            LinearProgressIndicator(
-                              value: s.progress(p).clamp(0, 1),
-                              color: orange,
-                            ),
-                            Text(
-                              '${(s.progress(p) * 100).floor()}% 펀딩 · ${money(p['funded'])}',
-                            ),
-                          ],
-                        ],
-                      ),
-                      tap: () =>
-                          open(c, Detail(store: s, item: p, isPlace: tab == 0)),
-                    ),
-                  ),
-                )
-                .toList(),
-          );
-        },
-      ),
-    ];
-  }
-
   List<Widget> myPage() => [
     Text(
       '${s.name}님, 안녕하세요!',
@@ -416,27 +336,18 @@ class _HomeState extends State<Home> {
         ],
       ),
     ),
-    card(
-      Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            '내 틱 정산',
-            style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-          ),
-          Text(
-            '${s.tick} Tick · ${s.tier.name}',
-            style: const TextStyle(
-              fontSize: 30,
-              color: orange,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const Text('등급 정책과 획득 내역 보기 →'),
-        ],
+    const Padding(
+      padding: EdgeInsets.only(top: 16, bottom: 12),
+      child: Text(
+        '내 틱 정산',
+        style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
       ),
-      tap: () => open(context, TickPage(store: s)),
     ),
+    TickOverview(
+      store: s,
+      onTap: () => open(context, TickPage(store: s)),
+    ),
+    const SizedBox(height: 16),
     heading('My ticket', '전체 보기', () => open(context, TicketsPage(store: s))),
     if (s.tickets.isEmpty) const Text('아직 참여한 공연이 없습니다.'),
     ...s.tickets.take(2).map((t) {
@@ -481,6 +392,133 @@ class _HomeState extends State<Home> {
   ];
 }
 
+class CatalogPage extends StatefulWidget {
+  final Store store;
+  final bool isPlace;
+  final String initialGenre;
+  const CatalogPage({
+    super.key,
+    required this.store,
+    required this.isPlace,
+    this.initialGenre = '전체',
+  });
+  @override
+  State<CatalogPage> createState() => _CatalogPageState();
+}
+
+class _CatalogPageState extends State<CatalogPage> {
+  String query = '';
+  @override
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: widget.store,
+    builder: (context, _) {
+      final places = widget.isPlace;
+      final items = (places ? widget.store.places : widget.store.shows).where((
+        item,
+      ) {
+        final text = places
+            ? '${item['name']} ${item['address']}'
+            : '${item['title']} ${item['artists']} ${widget.store.placeFor(item)['name']} ${widget.store.placeFor(item)['address']}';
+        return text.toLowerCase().contains(query.toLowerCase()) &&
+            (places ||
+                widget.initialGenre == '전체' ||
+                item['genre'] == widget.initialGenre);
+      }).toList();
+      return Scaffold(
+        appBar: AppBar(
+          title: Text(places ? '모든 공간' : '모든 공연'),
+          actions: [
+            IconButton(
+              tooltip: places ? '공간 등록 +' : '공연 등록 +',
+              icon: const Icon(Icons.add),
+              onPressed: () => open(
+                context,
+                Registration(store: widget.store, isPlace: places),
+              ),
+            ),
+          ],
+        ),
+        body: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(20),
+              child: TextField(
+                decoration: const InputDecoration(
+                  hintText: 'Searching...',
+                  prefixIcon: Icon(Icons.search),
+                ),
+                onChanged: (value) => setState(() => query = value),
+              ),
+            ),
+            Expanded(
+              child: items.isEmpty
+                  ? const Center(child: Text('검색 결과가 없습니다.'))
+                  : ListView.builder(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      itemCount: items.length,
+                      itemBuilder: (context, index) {
+                        final item = items[index];
+                        return Card(
+                          color: Colors.white,
+                          child: InkWell(
+                            onTap: () => open(
+                              context,
+                              Detail(
+                                store: widget.store,
+                                item: item,
+                                isPlace: places,
+                              ),
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.all(16),
+                              child: Row(
+                                children: [
+                                  SizedBox(
+                                    width: 100,
+                                    child: Artwork(
+                                      item['image'],
+                                      height: 120,
+                                      item: item,
+                                      isPlace: places,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 16),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          item[places ? 'name' : 'title'],
+                                          style: const TextStyle(
+                                            fontSize: 20,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 8),
+                                        Text(
+                                          places
+                                              ? '${item['address']}\n${placeCapacity(item)}'
+                                              : dateLabel(item['start']),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
+      );
+    },
+  );
+}
+
 class Detail extends StatelessWidget {
   final Store store;
   final Record item;
@@ -502,7 +540,7 @@ class Detail extends StatelessWidget {
           child: ListView(
             padding: const EdgeInsets.all(24),
             children: [
-              Artwork(item['image'], height: 320),
+              Artwork(item['image'], height: 320, item: item, isPlace: isPlace),
               const SizedBox(height: 20),
               Text(
                 item[isPlace ? 'name' : 'title'],
@@ -512,9 +550,16 @@ class Detail extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 14),
+              if (item['candidate'] == true || item['demo'] == true) ...[
+                CatalogBadge(
+                  isPlace: isPlace,
+                  candidate: item['candidate'] == true,
+                ),
+                const SizedBox(height: 14),
+              ],
               Text(
                 isPlace
-                    ? '${item['address']}\n최대 ${item['capacity']}명 · ${money(item['fee'])} / 회차\n운영 ${item['hours']}'
+                    ? '${item['address']}\n${placeCapacity(item)}\n${item['candidate'] == true ? '대관·매출 배분 조건 협의 필요' : '${money(item['fee'])} / 회차'}\n운영 ${item['hours']}'
                     : '${dateLabel(item['start'])} – ${dateLabel(item['end'])}\n${store.placeFor(item)['name']} · ${money(item['price'])}',
               ),
               const SizedBox(height: 20),
@@ -524,6 +569,10 @@ class Detail extends StatelessWidget {
               ),
               const SizedBox(height: 20),
               if (isPlace) ...[
+                if (item['candidate'] == true) ...[
+                  CandidateInfo(place: item),
+                  const SizedBox(height: 20),
+                ],
                 Text('보유 장비\n${item['equipment']}'),
                 const SizedBox(height: 20),
                 FilledButton(
@@ -535,7 +584,11 @@ class Detail extends StatelessWidget {
                       placeId: item['id'],
                     ),
                   ),
-                  child: const Text('이 공간에서 공연 만들기'),
+                  child: Text(
+                    item['candidate'] == true
+                        ? '이 후보 공간으로 시연 공연 만들기'
+                        : '이 공간에서 공연 만들기',
+                  ),
                 ),
               ] else ...[
                 Text(
@@ -698,6 +751,8 @@ class _RegistrationState extends State<Registration> {
   late String place;
   String genre = 'Music', image = '';
   bool busy = false;
+  int step = 0;
+  final scroll = ScrollController();
   DateTime start = DateTime.now().add(const Duration(days: 1)),
       end = DateTime.now().add(const Duration(days: 1, hours: 2));
   @override
@@ -708,6 +763,7 @@ class _RegistrationState extends State<Registration> {
 
   @override
   void dispose() {
+    scroll.dispose();
     for (final f in fields.values) {
       f.dispose();
     }
@@ -719,6 +775,7 @@ class _RegistrationState extends State<Registration> {
       Padding(
         padding: const EdgeInsets.only(bottom: 16),
         child: TextFormField(
+          key: ValueKey(id),
           controller: fields.putIfAbsent(id, () => TextEditingController()),
           decoration: InputDecoration(labelText: label),
           maxLines: lines,
@@ -824,199 +881,300 @@ class _RegistrationState extends State<Registration> {
     }
   }
 
+  void next() {
+    if (!key.currentState!.validate()) return;
+    if (step == 1 && !widget.isPlace) {
+      if (!start.isAfter(DateTime.now()) || !end.isAfter(start)) {
+        error(context, '시작은 현재 이후, 종료는 시작 이후로 선택해 주세요.');
+        return;
+      }
+      if (widget.store.conflicts(place, start, end)) {
+        error(context, '이미 예약된 시간이에요. 다른 시간이나 공간을 선택해 주세요.');
+        return;
+      }
+    }
+    FocusScope.of(context).unfocus();
+    setState(() => step++);
+    scroll.jumpTo(0);
+  }
+
   @override
   Widget build(BuildContext c) {
     final p = widget.isPlace;
+    final titles = p
+        ? ['어떤 공간인가요?', '이용 조건을 알려주세요', '대표 사진을 골라주세요']
+        : ['어떤 공연인가요?', '언제, 어디서 열리나요?', '티켓과 포스터를 준비해요'];
+    final hints = p
+        ? [
+            '이름과 위치, 소개부터 입력해요.',
+            '관객 수와 장비를 알려주면 공연자가 준비하기 쉬워요.',
+            '목록과 상세 화면에 같은 사진이 표시돼요.',
+          ]
+        : [
+            '제목과 소개, 출연자를 알려주세요.',
+            '준비와 철수 시간을 포함해 공간을 확보해 주세요.',
+            '금액은 원 단위, 관객 수는 명 단위로 입력해요.',
+          ];
     return Scaffold(
-      appBar: AppBar(title: Text(p ? '공간 등록' : '새 공연 등록')),
+      backgroundColor: canvas,
+      appBar: AppBar(
+        title: Text(p ? '공간 등록' : '새 공연 등록'),
+        backgroundColor: canvas,
+      ),
       body: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 760),
-          child: Form(
-            key: key,
-            child: ListView(
-              padding: const EdgeInsets.all(24),
-              children: [
-                field('name', p ? '공간 이름' : '공연 제목'),
-                field('description', p ? '공간 소개' : '공연 소개', lines: 4),
-                if (p) ...[
-                  field('address', '상세 주소'),
-                  field('capacity', '최대 수용 관객 수 (명)', number: true),
-                  field('fee', '회차당 대관료 (원)', number: true),
-                  field('hours', '운영 시간 · 예: 10:00–22:00'),
-                  field('equipment', '보유 장비 · 마이크, 믹서, 조명 등', lines: 3),
-                ] else ...[
-                  field('artists', '출연자'),
-                  DropdownButtonFormField<String>(
-                    initialValue: place,
-                    decoration: const InputDecoration(labelText: '공연 공간'),
-                    items: widget.store.places
-                        .map(
-                          (p) => DropdownMenuItem<String>(
-                            value: p['id'],
-                            child: Text(p['name']),
-                          ),
-                        )
-                        .toList(),
-                    onChanged: (v) => setState(() => place = v!),
-                  ),
-                  const SizedBox(height: 16),
-                  DropdownButtonFormField<String>(
-                    initialValue: genre,
-                    decoration: const InputDecoration(labelText: '장르'),
-                    items: ['Music', 'Band', 'Lo-fi', 'Jazz']
-                        .map((g) => DropdownMenuItem(value: g, child: Text(g)))
-                        .toList(),
-                    onChanged: (v) => genre = v!,
-                  ),
-                  ListTile(
-                    title: const Text('공연 시작'),
-                    subtitle: Text(dateLabel(start.toIso8601String())),
-                    trailing: const Icon(Icons.calendar_month),
-                    onTap: () => date(false),
-                  ),
-                  ListTile(
-                    title: const Text('공연 종료'),
-                    subtitle: Text(dateLabel(end.toIso8601String())),
-                    trailing: const Icon(Icons.schedule),
-                    onTap: () => date(true),
-                  ),
-                  field('price', '티켓 가격 (원)', number: true),
-                  field('capacity', '목표 관객 수 (명)', number: true),
-                  field('goal', '펀딩 목표 금액 (원)', number: true),
-                ],
-                Artwork(
-                  image.isEmpty
-                      ? (p
-                            ? 'assets/place-hopyeong.png'
-                            : widget.store.places.firstWhere(
-                                (p) => p['id'] == place,
-                              )['image'])
-                      : image,
-                ),
-                TextButton.icon(
-                  onPressed: pick,
-                  icon: const Icon(Icons.add_photo_alternate),
-                  label: Text(p ? '대표 사진 선택' : '포스터 선택 · 미선택 시 공간 사진 사용'),
-                ),
-                const SizedBox(height: 16),
-                FilledButton(
-                  onPressed: busy ? null : submit,
-                  child: Text(busy ? '저장 중…' : '등록하기'),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class TickPage extends StatelessWidget {
-  final Store store;
-  const TickPage({super.key, required this.store});
-  @override
-  Widget build(BuildContext c) => ListenableBuilder(
-    listenable: store,
-    builder: (c, _) => Scaffold(
-      appBar: AppBar(title: const Text('내 틱 정산')),
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 1000),
-          child: ListView(
-            padding: const EdgeInsets.all(24),
+          child: Column(
             children: [
-              Text(
-                '${store.tick} Tick · ${store.tier.name}',
-                style: const TextStyle(
-                  fontSize: 32,
-                  fontWeight: FontWeight.bold,
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 12, 24, 0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '${step + 1} / 3단계',
+                      style: const TextStyle(
+                        color: orange,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    LinearProgressIndicator(
+                      value: (step + 1) / 3,
+                      minHeight: 5,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    const SizedBox(height: 24),
+                    Text(
+                      titles[step],
+                      style: const TextStyle(
+                        fontSize: 28,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      hints[step],
+                      style: const TextStyle(
+                        color: Colors.black54,
+                        height: 1.5,
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                  ],
                 ),
               ),
-              Text(
-                store.tick >= 110
-                    ? '최상위 등급입니다'
-                    : '다음 등급까지 ${Tier.all.firstWhere((t) => t.minimum > store.tick).minimum - store.tick} Tick',
-              ),
-              const SizedBox(height: 22),
-              const Text('성장 단계별 공연 규모와 티켓 정책', style: TextStyle(fontSize: 20)),
-              const SizedBox(height: 16),
-              Wrap(
-                spacing: 12,
-                runSpacing: 12,
-                children: Tier.all
-                    .map(
-                      (t) => Container(
-                        width: 260,
-                        padding: const EdgeInsets.all(24),
-                        decoration: BoxDecoration(
-                          color: ink,
-                          borderRadius: BorderRadius.circular(22),
-                          border: Border.all(
-                            color: t == store.tier
-                                ? orange
-                                : Colors.transparent,
-                            width: 2,
-                          ),
+              Expanded(
+                child: Form(
+                  key: key,
+                  child: ListView(
+                    controller: scroll,
+                    padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+                    children: [
+                      if (step == 0) ...[
+                        field('name', p ? '공간 이름' : '공연 제목'),
+                        if (p) field('address', '상세 주소'),
+                        field('description', p ? '공간 소개' : '공연 소개', lines: 4),
+                        if (!p) field('artists', '출연자'),
+                      ],
+                      if (step == 1 && p) ...[
+                        field('capacity', '최대 수용 관객 수 (명)', number: true),
+                        field('fee', '회차당 대관료 (원)', number: true),
+                        field('hours', '운영 시간 · 예: 10:00–22:00'),
+                        field('equipment', '보유 장비 · 마이크, 믹서, 조명 등', lines: 3),
+                      ],
+                      if (step == 1 && !p) ...[
+                        DropdownButtonFormField<String>(
+                          initialValue: place,
+                          isExpanded: true,
+                          decoration: const InputDecoration(labelText: '공연 공간'),
+                          items: widget.store.places
+                              .map(
+                                (p) => DropdownMenuItem<String>(
+                                  value: p['id'],
+                                  child: Text(
+                                    p['name'],
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              )
+                              .toList(),
+                          onChanged: (v) => setState(() => place = v!),
                         ),
-                        child: DefaultTextStyle(
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                          ),
+                        const SizedBox(height: 16),
+                        DropdownButtonFormField<String>(
+                          initialValue: genre,
+                          decoration: const InputDecoration(labelText: '장르'),
+                          items: ['Music', 'Band', 'Lo-fi', 'Jazz']
+                              .map(
+                                (g) =>
+                                    DropdownMenuItem(value: g, child: Text(g)),
+                              )
+                              .toList(),
+                          onChanged: (v) => genre = v!,
+                        ),
+                        const SizedBox(height: 16),
+                        Card(
+                          elevation: 0,
+                          color: Colors.white,
                           child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
-                                t.name,
-                                style: const TextStyle(
-                                  fontSize: 25,
-                                  fontWeight: FontWeight.bold,
-                                  color: orange,
+                              ListTile(
+                                title: const Text('공연 시작'),
+                                subtitle: Text(
+                                  dateLabel(start.toIso8601String()),
                                 ),
+                                trailing: const Icon(Icons.calendar_month),
+                                onTap: () => date(false),
                               ),
-                              Text('${t.minimum}+ Tick'),
-                              const SizedBox(height: 22),
-                              const Text('최저 티켓가 설정 한도'),
-                              Text(
-                                t.price == null ? '무제한' : money(t.price),
-                                style: const TextStyle(
-                                  fontSize: 28,
-                                  fontWeight: FontWeight.bold,
+                              const Divider(height: 1),
+                              ListTile(
+                                title: const Text('공연 종료'),
+                                subtitle: Text(
+                                  dateLabel(end.toIso8601String()),
                                 ),
-                              ),
-                              const Divider(),
-                              Text(t.venue),
-                              Text(
-                                '최대 관객 ${t.audience ?? '무제한'}${t.audience == null ? '' : '명'}',
+                                trailing: const Icon(Icons.schedule),
+                                onTap: () => date(true),
                               ),
                             ],
                           ),
                         ),
+                      ],
+                      if (step == 2) ...[
+                        if (!p) ...[
+                          field('price', '티켓 가격 (원)', number: true),
+                          field('capacity', '목표 관객 수 (명)', number: true),
+                          field('goal', '펀딩 목표 금액 (원)', number: true),
+                          Text(
+                            '나의 등급: ${widget.store.tier.name} · 티켓 ${widget.store.tier.price == null ? '가격 제한 없음' : '최대 ${money(widget.store.tier.price)}'} · 관객 ${widget.store.tier.audience ?? '제한 없음'}',
+                            style: const TextStyle(
+                              color: Colors.black54,
+                              height: 1.5,
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+                        ],
+                        Artwork(
+                          image.isEmpty
+                              ? (p
+                                    ? 'assets/place-hopyeong.png'
+                                    : widget.store.places.firstWhere(
+                                        (p) => p['id'] == place,
+                                      )['image'])
+                              : image,
+                        ),
+                        const SizedBox(height: 12),
+                        OutlinedButton.icon(
+                          onPressed: busy ? null : pick,
+                          icon: const Icon(Icons.add_photo_alternate_outlined),
+                          label: Text(
+                            image.isEmpty
+                                ? (p ? '공간 사진 선택' : '공연 포스터 선택')
+                                : '사진 변경',
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          p
+                              ? '사진을 선택하지 않으면 기본 사진을 사용해요.'
+                              : '포스터를 선택하지 않으면 공간 사진을 사용해요.',
+                          style: const TextStyle(
+                            color: Colors.black54,
+                            height: 1.5,
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        Card(
+                          elevation: 0,
+                          color: Colors.white,
+                          child: Padding(
+                            padding: const EdgeInsets.all(20),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  '등록할 내용',
+                                  style: TextStyle(fontWeight: FontWeight.w800),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  val('name'),
+                                  style: const TextStyle(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  p
+                                      ? val('address')
+                                      : dateLabel(start.toIso8601String()),
+                                ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  p
+                                      ? '최대 ${val('capacity')}명 · 대관료 ${val('fee')}원'
+                                      : widget.store.places.firstWhere(
+                                          (p) => p['id'] == place,
+                                        )['name'],
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+              SafeArea(
+                top: false,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 12, 24, 16),
+                  child: Row(
+                    children: [
+                      if (step > 0) ...[
+                        OutlinedButton(
+                          onPressed: busy
+                              ? null
+                              : () {
+                                  FocusScope.of(c).unfocus();
+                                  setState(() => step--);
+                                  scroll.jumpTo(0);
+                                },
+                          child: const Text('이전'),
+                        ),
+                        const SizedBox(width: 12),
+                      ],
+                      Expanded(
+                        child: FilledButton(
+                          onPressed: busy
+                              ? null
+                              : step < 2
+                              ? next
+                              : submit,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            child: Text(
+                              busy
+                                  ? '저장 중…'
+                                  : step < 2
+                                  ? '다음'
+                                  : '등록하기',
+                            ),
+                          ),
+                        ),
                       ),
-                    )
-                    .toList(),
-              ),
-              const SizedBox(height: 24),
-              const Text(
-                'Tick은 공연 완료 후 평가 정산 시 한 번만 적립됩니다.\nMVP 임시 산식: 공연 완료 1 + 평가 1~5 Tick',
-              ),
-              if (store.ledger.isEmpty)
-                const ListTile(title: Text('아직 획득 내역이 없습니다.')),
-              ...store.ledger.map(
-                (e) => ListTile(
-                  title: Text(e['reason']),
-                  subtitle: Text(dateLabel(e['at'])),
-                  trailing: Text('+${e['amount']} Tick'),
+                    ],
+                  ),
                 ),
               ),
             ],
           ),
         ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 class TicketsPage extends StatelessWidget {
@@ -1062,52 +1220,96 @@ class _SettingsPageState extends State<SettingsPage> {
 
   @override
   Widget build(BuildContext c) => Scaffold(
-    appBar: AppBar(title: const Text('설정')),
-    body: ListView(
-      padding: const EdgeInsets.all(24),
-      children: [
-        TextField(
-          controller: name,
-          decoration: const InputDecoration(labelText: '프로필 이름'),
-        ),
-        const SizedBox(height: 16),
-        FilledButton(
-          onPressed: () async {
-            if (name.text.trim().isEmpty) return;
-            widget.store.name = name.text.trim();
-            await widget.store.save();
-            if (c.mounted) Navigator.pop(c);
-          },
-          child: const Text('프로필 저장'),
-        ),
-        const SizedBox(height: 24),
-        OutlinedButton(
-          onPressed: () async {
-            final yes = await showDialog<bool>(
-              context: c,
-              builder: (c) => AlertDialog(
-                title: const Text('시연 데이터로 초기화'),
-                content: const Text('등록한 공간·공연·티켓과 틱 획득 내역을 삭제합니다.'),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(c, false),
-                    child: const Text('취소'),
+    backgroundColor: canvas,
+    appBar: AppBar(title: const Text('설정'), backgroundColor: canvas),
+    body: Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 760),
+        child: ListView(
+          padding: const EdgeInsets.all(24),
+          children: [
+            const Text(
+              '프로필',
+              style: TextStyle(fontSize: 26, fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              '앱에서 사용할 이름을 변경해요.',
+              style: TextStyle(color: Colors.black54),
+            ),
+            const SizedBox(height: 24),
+            Card(
+              elevation: 0,
+              color: Colors.white,
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  children: [
+                    TextField(
+                      controller: name,
+                      decoration: const InputDecoration(labelText: '프로필 이름'),
+                    ),
+                    const SizedBox(height: 16),
+                    FilledButton(
+                      onPressed: () async {
+                        if (name.text.trim().isEmpty) return;
+                        widget.store.name = name.text.trim();
+                        await widget.store.save();
+                        if (c.mounted) Navigator.pop(c);
+                      },
+                      child: const Text('프로필 저장'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 32),
+            Card(
+              elevation: 0,
+              color: Colors.white,
+              child: ExpansionTile(
+                leading: const Icon(Icons.tune_rounded),
+                title: const Text('시연 데이터 관리'),
+                subtitle: const Text('초기화가 필요할 때만 열어주세요'),
+                childrenPadding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                children: [
+                  const Text(
+                    '직접 등록한 공간·공연과 참여 내역을 지우고 기본 시연 상태로 돌아가요.',
+                    style: TextStyle(color: Colors.black54, height: 1.5),
                   ),
-                  TextButton(
-                    onPressed: () => Navigator.pop(c, true),
-                    child: const Text('초기화'),
+                  const SizedBox(height: 12),
+                  OutlinedButton(
+                    onPressed: () async {
+                      final yes = await showDialog<bool>(
+                        context: c,
+                        builder: (c) => AlertDialog(
+                          title: const Text('시연 데이터로 초기화'),
+                          content: const Text('등록한 공간·공연·티켓과 틱 획득 내역을 삭제합니다.'),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(c, false),
+                              child: const Text('취소'),
+                            ),
+                            TextButton(
+                              onPressed: () => Navigator.pop(c, true),
+                              child: const Text('초기화'),
+                            ),
+                          ],
+                        ),
+                      );
+                      if (yes == true) {
+                        await widget.store.reset();
+                        if (c.mounted) Navigator.pop(c);
+                      }
+                    },
+                    child: const Text('시연 데이터만 남기고 초기화'),
                   ),
                 ],
               ),
-            );
-            if (yes == true) {
-              await widget.store.reset();
-              if (c.mounted) Navigator.pop(c);
-            }
-          },
-          child: const Text('시연 데이터만 남기고 초기화'),
+            ),
+          ],
         ),
-      ],
+      ),
     ),
   );
 }

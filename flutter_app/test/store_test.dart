@@ -58,7 +58,7 @@ void main() {
     await s.reset();
     expect(s.tickets, isEmpty);
     expect(s.tick, 18);
-    expect(s.places.length, 4);
+    expect(s.places.length, 44);
   });
   testWidgets('공간 목록과 마이 정산 화면 표시', (tester) async {
     await tester.pumpWidget(CrocApp(store: s));

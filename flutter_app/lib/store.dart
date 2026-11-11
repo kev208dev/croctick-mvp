@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'demo_catalog.dart';
 
 typedef Record = Map<String, dynamic>;
 
@@ -25,6 +26,8 @@ class Store extends ChangeNotifier {
   List<Record> places = [], shows = [], tickets = [], ledger = [];
   String name = '김청휘';
   int tick = 18;
+  int catalogVersion = 0;
+  bool loadFailed = false;
   Store(this.prefs) {
     load();
   }
@@ -43,7 +46,10 @@ class Store extends ChangeNotifier {
       shows = List<Record>.from(d['shows']);
       tickets = List<Record>.from(d['tickets']);
       ledger = List<Record>.from(d['ledger']);
+      catalogVersion = d['catalogVersion'] ?? 0;
+      if (catalogVersion < demoCatalogVersion) _addDemoCatalog();
     } catch (_) {
+      loadFailed = true;
       seed();
     }
   }
@@ -95,9 +101,34 @@ class Store extends ChangeNotifier {
         'mine': false,
       };
     });
+    _addDemoCatalog();
+  }
+
+  void _addDemoCatalog() {
+    final candidates = demoPlaces();
+    final knownPlaces = places.map((p) => p['id']).toSet();
+    places.insertAll(
+      0,
+      candidates.where((p) => !knownPlaces.contains(p['id'])),
+    );
+    final knownShows = shows.map((s) => s['id']).toSet();
+    final generated = demoShows(candidates, DateTime.now());
+    shows.insertAll(0, generated.where((s) => !knownShows.contains(s['id'])));
+    for (final place in places) {
+      if (RegExp(r'^p[0-3]$').hasMatch(place['id']) && place['mine'] != true) {
+        place['demo'] = true;
+      }
+    }
+    for (final show in shows) {
+      if (RegExp(r'^s[0-3]$').hasMatch(show['id']) && show['mine'] != true) {
+        show['demo'] = true;
+      }
+    }
+    catalogVersion = demoCatalogVersion;
   }
 
   Future<void> save() async {
+    if (loadFailed) throw StateError('기존 기록을 읽지 못해 저장을 중단했습니다. 원본 데이터는 유지됩니다.');
     final ok = await prefs.setString(
       'croctick.v1',
       jsonEncode({
@@ -107,6 +138,7 @@ class Store extends ChangeNotifier {
         'shows': shows,
         'tickets': tickets,
         'ledger': ledger,
+        'catalogVersion': catalogVersion,
       }),
     );
     if (!ok) throw StateError('기기에 저장하지 못했습니다.');
@@ -174,6 +206,7 @@ class Store extends ChangeNotifier {
     }
     shows.insert(0, {
       ...s,
+      'demo': s['demo'] == true || placeFor(s)['demo'] == true,
       'id': id(),
       'mine': true,
       'funded': 0,
@@ -184,6 +217,7 @@ class Store extends ChangeNotifier {
 
   Future<void> reset() async {
     seed();
+    loadFailed = false;
     await save();
   }
 
