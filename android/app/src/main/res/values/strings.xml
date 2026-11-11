@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">CrocTick</string>
+    <string name="title_activity_main">CrocTick</string>
+    <string name="package_name">com.croctick.app</string>
+    <string name="custom_url_scheme">com.croctick.app</string>
+</resources>
