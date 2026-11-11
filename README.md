@@ -1,5 +1,20 @@
 # CrocTick MVP
 
+## Flutter 통합판 (현재 개발 기준)
+
+Android와 iOS 공통 앱은 `flutter_app/`입니다. 기존 React·SwiftUI 코드는 참고용으로 보존합니다.
+`FLUTTER_PLAN.md`에 기능 차이, 미완성 항목, 확정된 사업 정책, 추가 디자인 요청과 후속 작업 순서를 정리했습니다.
+
+```bash
+cd flutter_app
+flutter pub get
+flutter analyze
+flutter test
+flutter run
+```
+
+플랫폼별 빌드 안내는 `flutter_app/RUNBOOK.md`를 참고하세요. 현재 로컬 시연 MVP이며 실제 결제·송금과 다중 사용자 서버는 연결되지 않았습니다.
+
 유휴 공간과 인디 뮤지션을 연결하고, 관객의 사전 티켓 펀딩으로 공연을 확정하는 CrocTick의 모바일 웹 MVP입니다.
 
 ## Run

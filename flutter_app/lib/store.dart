@@ -1,0 +1,231 @@
+import 'dart:convert';
+import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+typedef Record = Map<String, dynamic>;
+
+class Tier {
+  final String name, venue;
+  final int minimum;
+  final int? price, audience;
+  const Tier(this.name, this.minimum, this.price, this.audience, this.venue);
+  static const all = [
+    Tier('Rookie', 0, 15000, 50, '지역 거점 공간'),
+    Tier('Rising', 20, 60000, 80, '도심 인접 공간'),
+    Tier('Artist', 40, 150000, 150, '도심 중심 공간'),
+    Tier('Pro', 70, 250000, 300, '핵심 상권 · 프라임 공간'),
+    Tier('Headliner', 110, null, null, '랜드마크 · 대표 공간'),
+  ];
+  static Tier forTick(int tick) =>
+      all.lastWhere((t) => tick >= t.minimum, orElse: () => all.first);
+}
+
+class Store extends ChangeNotifier {
+  final SharedPreferences prefs;
+  List<Record> places = [], shows = [], tickets = [], ledger = [];
+  String name = '김청휘';
+  int tick = 18;
+  Store(this.prefs) {
+    load();
+  }
+  Tier get tier => Tier.forTick(tick);
+  void load() {
+    final raw = prefs.getString('croctick.v1');
+    if (raw == null) {
+      seed();
+      return;
+    }
+    try {
+      final d = jsonDecode(raw) as Record;
+      name = d['name'];
+      tick = d['tick'];
+      places = List<Record>.from(d['places']);
+      shows = List<Record>.from(d['shows']);
+      tickets = List<Record>.from(d['tickets']);
+      ledger = List<Record>.from(d['ledger']);
+    } catch (_) {
+      seed();
+    }
+  }
+
+  void seed() {
+    name = '김청휘';
+    tick = 18;
+    tickets = [];
+    ledger = [];
+    places = List.generate(
+      4,
+      (i) => {
+        'id': 'p$i',
+        'name': ['한마음 교회', '호평 주 평화 교회', '해맞이 그린 센터', '이현 교회'][i],
+        'address': ['경기도 남양주시', '남양주시 호평동', '경상북도 포항시', '용인시 기흥구'][i],
+        'capacity': [150, 30, 54, 80][i],
+        'fee': 50000,
+        'hours': '10:00–22:00',
+        'equipment': '마이크 4개, 믹서, 스피커, 기본 조명',
+        'description': '동네 관객과 아티스트가 가까이 만나는 공연 공간입니다. 좌석과 무대 배치는 협의할 수 있어요.',
+        'image':
+            'assets/place-${['hopyeong', 'haemaji', 'ihyun', 'hopyeong'][i]}.png',
+        'mine': false,
+      },
+    );
+    final day = DateTime.now().add(const Duration(days: 30));
+    shows = List.generate(4, (i) {
+      final start = DateTime(day.year, day.month, day.day + i, 19);
+      return {
+        'id': 's$i',
+        'title': [
+          '술탄 오브 더 디스코',
+          'Pocket Music Fest',
+          'Oasis concert',
+          'Indie Band Bond',
+        ][i],
+        'placeId': 'p$i',
+        'start': start.toIso8601String(),
+        'end': start.add(const Duration(hours: 2)).toIso8601String(),
+        'genre': ['Music', 'Band', 'Lo-fi', 'Jazz'][i],
+        'description': '좋아하는 아티스트의 무대를 우리 동네에서 만나요. 관객의 사전 참여로 공연을 함께 만듭니다.',
+        'artists': ['술탄 오브 더 디스코', '동네 뮤지션', 'Oasis', '인디 밴드'][i],
+        'price': 15000,
+        'audience': 30,
+        'goal': 450000,
+        'funded': [369000, 288000, 211500, 319500][i],
+        'image':
+            'assets/poster-${['sultan', 'pocket', 'oasis', 'indie'][i]}.png',
+        'mine': false,
+      };
+    });
+  }
+
+  Future<void> save() async {
+    final ok = await prefs.setString(
+      'croctick.v1',
+      jsonEncode({
+        'name': name,
+        'tick': tick,
+        'places': places,
+        'shows': shows,
+        'tickets': tickets,
+        'ledger': ledger,
+      }),
+    );
+    if (!ok) throw StateError('기기에 저장하지 못했습니다.');
+    notifyListeners();
+  }
+
+  String id() => DateTime.now().microsecondsSinceEpoch.toString();
+  void award(int amount, String reason) {
+    tick += amount;
+    ledger.insert(0, {
+      'amount': amount,
+      'reason': reason,
+      'at': DateTime.now().toIso8601String(),
+    });
+  }
+
+  Record placeFor(Record show) =>
+      places.firstWhere((p) => p['id'] == show['placeId']);
+  double progress(Record s) => (s['funded'] as num) / (s['goal'] as num);
+  bool joined(Record s) => tickets.any((t) => t['showId'] == s['id']);
+  bool conflicts(String place, DateTime start, DateTime end) => shows.any(
+    (s) =>
+        status(s) != '취소' &&
+        s['placeId'] == place &&
+        start.isBefore(DateTime.parse(s['end'])) &&
+        end.isAfter(DateTime.parse(s['start'])),
+  );
+  Future<void> join(Record s) async {
+    if (status(s) != '펀딩 중' && status(s) != '공연 확정') {
+      throw StateError('현재 참여할 수 없는 공연입니다.');
+    }
+    if (joined(s)) throw StateError('이미 참여한 공연입니다.');
+    if (DateTime.parse(s['start']).isBefore(DateTime.now())) {
+      throw StateError('시작된 공연에는 참여할 수 없습니다.');
+    }
+    s['funded'] += s['price'];
+    tickets.insert(0, {
+      'id': id(),
+      'showId': s['id'],
+      'amount': s['price'],
+      'at': DateTime.now().toIso8601String(),
+    });
+    await save();
+  }
+
+  Future<void> addPlace(Record p) async {
+    places.insert(0, {...p, 'id': id(), 'mine': true});
+    await save();
+  }
+
+  Future<void> addShow(Record s) async {
+    final start = DateTime.parse(s['start']), end = DateTime.parse(s['end']);
+    if (!end.isAfter(start)) throw StateError('종료 시간은 시작 시간 이후여야 합니다.');
+    if (conflicts(s['placeId'], start, end)) {
+      throw StateError('선택한 공간에 시간이 겹치는 공연이 있습니다.');
+    }
+    if (s['audience'] > placeFor(s)['capacity']) {
+      throw StateError('공간의 최대 수용 인원을 초과했습니다.');
+    }
+    if (tier.price != null && s['price'] > tier.price) {
+      throw StateError('${tier.name}의 티켓 설정 한도는 ${tier.price}원입니다.');
+    }
+    if (tier.audience != null && s['audience'] > tier.audience) {
+      throw StateError('${tier.name}의 관객 한도는 ${tier.audience}명입니다.');
+    }
+    shows.insert(0, {
+      ...s,
+      'id': id(),
+      'mine': true,
+      'funded': 0,
+      'approved': false,
+    });
+    await save();
+  }
+
+  Future<void> reset() async {
+    seed();
+    await save();
+  }
+
+  String status(Record s) {
+    if (s['cancelled'] == true) return '취소';
+    if (s['settled'] == true) return '정산 완료';
+    if (s['approved'] == false) return '공간 승인 대기';
+    if (progress(s) >= 1) {
+      return DateTime.parse(s['end']).isBefore(DateTime.now())
+          ? '평가 대기'
+          : '공연 확정';
+    }
+    final deadline = DateTime.parse(s['deadline'] ?? s['start']);
+    return deadline.isBefore(DateTime.now()) ? '펀딩 미달' : '펀딩 중';
+  }
+
+  Future<void> approve(Record s) async {
+    s['approved'] = true;
+    await save();
+  }
+
+  Future<void> cancel(Record s) async {
+    if (s['settled'] == true) throw StateError('이미 정산된 공연입니다.');
+    s['cancelled'] = true;
+    for (final t in tickets.where((t) => t['showId'] == s['id'])) {
+      t['refunded'] = true;
+    }
+    await save();
+  }
+
+  Future<void> settle(Record s, int rating) async {
+    if (status(s) != '평가 대기') throw StateError('목표를 달성하고 종료된 공연만 정산할 수 있습니다.');
+    if (rating < 1 || rating > 5) throw StateError('1~5점 평가를 선택하세요.');
+    final amount = s['funded'] as int;
+    s['settlement'] = {
+      'space': amount * 50 ~/ 100,
+      'artist': amount * 40 ~/ 100,
+      'platform': amount - (amount * 50 ~/ 100) - (amount * 40 ~/ 100),
+    };
+    s['rating'] = rating;
+    s['settled'] = true;
+    award(1 + rating, '${s['title']} 공연 완료·평가 정산');
+    await save();
+  }
+}
