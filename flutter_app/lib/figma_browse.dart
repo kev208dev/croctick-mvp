@@ -99,7 +99,7 @@ Widget _tap(Widget child, VoidCallback? onTap, {String? label, Key? key}) =>
 class FigmaBrowse extends StatefulWidget {
   final Store store;
   final bool isPlace;
-  final VoidCallback onMenu, onActivity, onProfile, onSeeAll;
+  final VoidCallback onTick, onActivity, onProfile, onSeeAll;
   final void Function(Map<String, dynamic>, bool) onOpen;
   final ValueChanged<String> onCategory;
   final VoidCallback onFilters;
@@ -107,7 +107,7 @@ class FigmaBrowse extends StatefulWidget {
     super.key,
     required this.store,
     required this.isPlace,
-    required this.onMenu,
+    required this.onTick,
     required this.onActivity,
     required this.onProfile,
     required this.onSeeAll,
@@ -214,7 +214,7 @@ class _FigmaBrowseState extends State<FigmaBrowse> {
       clipBehavior: Clip.hardEdge,
       children: [
         for (final action in <(double, String, String, VoidCallback)>[
-          (20, 'imgFrame3.svg', '메뉴', widget.onMenu),
+          (20, '', '내 Tick 보기', widget.onTick),
           (282, 'imgFrame4.svg', '알림', widget.onActivity),
           (338, 'imgFrame5.svg', '마이페이지', widget.onProfile),
         ])
@@ -231,7 +231,18 @@ class _FigmaBrowseState extends State<FigmaBrowse> {
                 ),
                 child: Padding(
                   padding: const EdgeInsets.all(11),
-                  child: _asset(_page, action.$2),
+                  child: action.$2.isEmpty
+                      ? const FittedBox(
+                          child: Text(
+                            'Tick',
+                            textScaler: TextScaler.noScaling,
+                            style: TextStyle(
+                              color: _ink,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        )
+                      : _asset(_page, action.$2),
                 ),
               ),
               action.$4,

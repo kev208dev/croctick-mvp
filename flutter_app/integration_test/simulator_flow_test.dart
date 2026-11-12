@@ -34,8 +34,12 @@ void main() {
         await tester.pumpAndSettle();
       }
 
-      // Start at the same home menu used by a person registering a space.
-      await press(find.bySemanticsLabel('메뉴'));
+      await press(find.byKey(const ValueKey('tab-마이')));
+      await tester.scrollUntilVisible(
+        find.text('공간 등록 +'),
+        150,
+        scrollable: find.byType(Scrollable).first,
+      );
       await press(find.text('공간 등록 +'));
       await fill('name', spaceName);
       await fill('address', '서울시 마포구 시뮬레이터 검증 주소');
@@ -52,6 +56,7 @@ void main() {
       expect(find.text('공간 상세'), findsOneWidget);
       await tester.pageBack();
       await tester.pumpAndSettle();
+      await press(find.byKey(const ValueKey('tab-홈')));
 
       await tester.enterText(find.byType(TextField).first, spaceName);
       await tester.pumpAndSettle();

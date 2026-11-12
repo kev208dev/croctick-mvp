@@ -187,66 +187,9 @@ class Home extends StatefulWidget {
   State<Home> createState() => _HomeState();
 }
 
-enum _MenuAction { home, shows, profile, addPlace, addShow, settings }
-
-const _menuEntries = [
-  (_MenuAction.home, Icons.home_outlined, '홈 · 공간'),
-  (_MenuAction.shows, Icons.music_note_outlined, '공연 둘러보기'),
-  (_MenuAction.profile, Icons.person_outline, '마이페이지'),
-  (_MenuAction.addPlace, Icons.add_business_outlined, '공간 등록 +'),
-  (_MenuAction.addShow, Icons.add_circle_outline, '공연 등록 +'),
-  (_MenuAction.settings, Icons.settings_outlined, '설정'),
-];
-
 class _HomeState extends State<Home> {
   int tab = 0;
   Store get s => widget.store;
-  Future<void> showMenu() async {
-    final action = await showModalBottomSheet<_MenuAction>(
-      context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
-      builder: (sheet) => SafeArea(
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const ListTile(
-                title: Text(
-                  '메뉴',
-                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-                ),
-              ),
-              for (final entry in _menuEntries)
-                ListTile(
-                  leading: Icon(entry.$2),
-                  title: Text(entry.$3),
-                  selected: entry.$1.index == tab,
-                  trailing: entry.$1.index == tab
-                      ? const Icon(Icons.check)
-                      : null,
-                  onTap: () => Navigator.pop(sheet, entry.$1),
-                ),
-            ],
-          ),
-        ),
-      ),
-    );
-    if (!mounted || action == null) return;
-    switch (action) {
-      case _MenuAction.home:
-      case _MenuAction.shows:
-      case _MenuAction.profile:
-        setState(() => tab = action.index);
-      case _MenuAction.addPlace:
-        await openRegistration(context, s, isPlace: true);
-      case _MenuAction.addShow:
-        await openRegistration(context, s, isPlace: false);
-      case _MenuAction.settings:
-        open(context, SettingsPage(store: s));
-    }
-  }
-
   Widget card(Widget child, {VoidCallback? tap}) => Card(
     color: Colors.white,
     margin: const EdgeInsets.only(bottom: 14),
@@ -277,9 +220,9 @@ class _HomeState extends State<Home> {
       appBar: tab == 2
           ? AppBar(
               leading: IconButton(
-                tooltip: '메뉴',
-                icon: const Icon(Icons.menu),
-                onPressed: showMenu,
+                tooltip: '내 Tick 보기',
+                icon: const Icon(Icons.stars_outlined),
+                onPressed: () => open(c, TickPage(store: s)),
               ),
               title: Image.asset('assets/croc-logo.png', height: 62),
               toolbarHeight: 80,
@@ -313,7 +256,7 @@ class _HomeState extends State<Home> {
                   key: ValueKey(tab),
                   store: s,
                   isPlace: tab == 0,
-                  onMenu: showMenu,
+                  onTick: () => open(c, TickPage(store: s)),
                   onActivity: () => open(c, NotificationsPage(store: s)),
                   onFilters: () => open(
                     c,

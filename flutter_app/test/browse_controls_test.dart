@@ -11,7 +11,7 @@ void main() {
     store = Store(await SharedPreferences.getInstance());
   });
 
-  testWidgets('상단 메뉴, 장르, 공연 태그 및 지역 필터가 구분된다', (tester) async {
+  testWidgets('상단 Tick과 장르·공연 태그·지역 필터가 구분된다', (tester) async {
     await tester.pumpWidget(CrocApp(store: store));
     await tester.pumpAndSettle();
     Future<void> tap(Finder finder) async {
@@ -30,8 +30,14 @@ void main() {
     expect(find.text('퇴근길 어쿠스틱'), findsOneWidget);
     await back();
 
-    await tap(find.byKey(const ValueKey('toolbar-메뉴')));
-    await tap(find.text('공연 둘러보기'));
+    final tick = find.byKey(const ValueKey('toolbar-내 Tick 보기'));
+    await tap(tick);
+    expect(find.text('● 내 현재 등급: Rookie · 18 Tick'), findsOneWidget);
+    await back();
+    await tap(find.byKey(const ValueKey('tab-공연')));
+    await tap(tick);
+    expect(find.text('● 내 현재 등급: Rookie · 18 Tick'), findsOneWidget);
+    await back();
     await tap(find.byKey(const ValueKey('show-tag-신나는')));
     expect(find.text('공연 필터 · 신나는'), findsOneWidget);
     await back();
