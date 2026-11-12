@@ -102,6 +102,7 @@ class FigmaBrowse extends StatefulWidget {
   final VoidCallback onMenu, onActivity, onProfile, onSeeAll;
   final void Function(Map<String, dynamic>, bool) onOpen;
   final ValueChanged<String> onCategory;
+  final VoidCallback onFilters;
   const FigmaBrowse({
     super.key,
     required this.store,
@@ -112,6 +113,7 @@ class FigmaBrowse extends StatefulWidget {
     required this.onSeeAll,
     required this.onOpen,
     required this.onCategory,
+    required this.onFilters,
   });
   @override
   State<FigmaBrowse> createState() => _FigmaBrowseState();
@@ -174,16 +176,16 @@ class _FigmaBrowseState extends State<FigmaBrowse> {
 
   Widget _seeAll(double x, double y, {VoidCallback? onTap, Key? key}) => _at(
     x - 3,
-    y - 8,
+    y - 15,
     47,
-    30,
+    44,
     _tap(
       Stack(
         clipBehavior: Clip.none,
         children: [
           _at(
             3,
-            8,
+            15,
             41,
             11,
             DecoratedBox(
@@ -194,7 +196,7 @@ class _FigmaBrowseState extends State<FigmaBrowse> {
               ),
             ),
           ),
-          _label('see all', 12, 8, 25, 8, color: Colors.black),
+          _label('see all', 12, 15, 25, 8, color: Colors.black),
         ],
       ),
       onTap ?? widget.onSeeAll,
@@ -233,6 +235,7 @@ class _FigmaBrowseState extends State<FigmaBrowse> {
                 ),
               ),
               action.$4,
+              key: ValueKey('toolbar-${action.$3}'),
               label: action.$3,
             ),
           ),
@@ -473,6 +476,7 @@ class _FigmaBrowseState extends State<FigmaBrowse> {
         _tap(
           const SizedBox.expand(),
           () => widget.onCategory(category.$3),
+          key: ValueKey('category-${category.$3}'),
           label: category.$3,
         ),
       ),
@@ -624,53 +628,58 @@ class _FigmaBrowseState extends State<FigmaBrowse> {
       color: Colors.black,
     ),
     for (final tag in <(double, String, String)>[
-      (19, '#잔잔한', 'Calm'),
-      (103, '#신나는', 'Band'),
-      (187, '#나만 아는', 'Lo-fi'),
-      (271, '#내 주변', ''),
+      (19, '#잔잔한', '잔잔한'),
+      (103, '#신나는', '신나는'),
+      (187, '#나만 아는', '나만 아는'),
+      (271, '#내 주변', '내 주변'),
     ])
       _at(
         tag.$1,
-        176,
+        168,
         77,
-        28,
+        44,
         _tap(
-          DecoratedBox(
-            decoration: BoxDecoration(
-              color: const Color(0xfffbd7be),
-              borderRadius: BorderRadius.circular(50),
-            ),
-            child: Center(
-              child: Text(
-                tag.$2,
-                textScaler: TextScaler.noScaling,
-                style: const TextStyle(
-                  fontFamily: 'Pretendard',
-                  fontSize: 13,
-                  height: 1.2,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xffc07c4d),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: const Color(0xfffbd7be),
+                borderRadius: BorderRadius.circular(50),
+              ),
+              child: Center(
+                child: Text(
+                  tag.$2,
+                  textScaler: TextScaler.noScaling,
+                  style: const TextStyle(
+                    fontFamily: 'Pretendard',
+                    fontSize: 13,
+                    height: 1.2,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xffc07c4d),
+                  ),
                 ),
               ),
             ),
           ),
-          () => tag.$3.isEmpty ? widget.onSeeAll() : widget.onCategory(tag.$3),
+          () => widget.onCategory(tag.$3),
+          key: ValueKey('show-tag-${tag.$3}'),
           label: tag.$2,
         ),
       ),
     _at(
-      355,
-      176,
-      28,
-      28,
+      350,
+      168,
+      44,
+      44,
       _tap(
         Stack(
           children: [
-            Positioned.fill(child: _asset(1, 'imgEllipse260.svg')),
-            _at(6.45, 7.43, 14.4387, 13.7709, _asset(1, 'imgVector1.svg')),
+            _at(5, 8, 28, 28, _asset(1, 'imgEllipse260.svg')),
+            _at(11.45, 15.43, 14.4387, 13.7709, _asset(1, 'imgVector1.svg')),
           ],
         ),
-        widget.onSeeAll,
+        widget.onFilters,
+        key: const ValueKey('show-filters'),
         label: '공연 필터',
       ),
     ),

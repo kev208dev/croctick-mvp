@@ -24,6 +24,7 @@ class Tier {
 class Store extends ChangeNotifier {
   final SharedPreferences prefs;
   List<Record> places = [], shows = [], tickets = [], ledger = [];
+  List<Record> notifications = [];
   String name = '김청휘';
   int tick = 18;
   int catalogVersion = 0;
@@ -46,6 +47,7 @@ class Store extends ChangeNotifier {
       shows = List<Record>.from(d['shows']);
       tickets = List<Record>.from(d['tickets']);
       ledger = List<Record>.from(d['ledger']);
+      notifications = List<Record>.from(d['notifications'] ?? []);
       catalogVersion = d['catalogVersion'] ?? 0;
       if (catalogVersion < demoCatalogVersion) _addDemoCatalog();
     } catch (_) {
@@ -59,6 +61,7 @@ class Store extends ChangeNotifier {
     tick = 18;
     tickets = [];
     ledger = [];
+    notifications = [];
     places = List.generate(
       4,
       (i) => {
@@ -138,6 +141,7 @@ class Store extends ChangeNotifier {
         'shows': shows,
         'tickets': tickets,
         'ledger': ledger,
+        'notifications': notifications,
         'catalogVersion': catalogVersion,
       }),
     );
@@ -146,6 +150,27 @@ class Store extends ChangeNotifier {
   }
 
   String id() => DateTime.now().microsecondsSinceEpoch.toString();
+
+  void _recordNotification(Record show, String title) {
+    notifications.insert(0, {
+      'title': title,
+      'showId': show['id'],
+      'at': DateTime.now().toIso8601String(),
+      'read': false,
+    });
+  }
+
+  Future<void> readNotification(Record notification) async {
+    if (notification['read'] == true) return;
+    notification['read'] = true;
+    try {
+      await save();
+    } catch (_) {
+      notification['read'] = false;
+      rethrow;
+    }
+  }
+
   void award(int amount, String reason) {
     tick += amount;
     ledger.insert(0, {
@@ -196,6 +221,10 @@ class Store extends ChangeNotifier {
       'amount': s['price'],
       'at': DateTime.now().toIso8601String(),
     });
+    _recordNotification(s, '펀딩 참여가 완료됐어요');
+    if (s['funded'] - s['price'] < s['goal'] && progress(s) >= 1) {
+      _recordNotification(s, '펀딩 목표를 달성했어요');
+    }
     await save();
   }
 
@@ -257,16 +286,20 @@ class Store extends ChangeNotifier {
   }
 
   Future<void> approve(Record s) async {
+    if (s['approved'] != false || s['cancelled'] == true) return;
     s['approved'] = true;
+    _recordNotification(s, '공간 예약이 승인됐어요');
     await save();
   }
 
   Future<void> cancel(Record s) async {
     if (s['settled'] == true) throw StateError('이미 정산된 공연입니다.');
+    if (s['cancelled'] == true) return;
     s['cancelled'] = true;
     for (final t in tickets.where((t) => t['showId'] == s['id'])) {
       t['refunded'] = true;
     }
+    _recordNotification(s, '공연이 취소됐어요');
     await save();
   }
 
@@ -282,6 +315,7 @@ class Store extends ChangeNotifier {
     s['rating'] = rating;
     s['settled'] = true;
     award(1 + rating, '${s['title']} 공연 완료·평가 정산');
+    _recordNotification(s, '공연 정산으로 ${1 + rating} Tick을 받았어요');
     await save();
   }
 }

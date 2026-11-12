@@ -187,9 +187,66 @@ class Home extends StatefulWidget {
   State<Home> createState() => _HomeState();
 }
 
+enum _MenuAction { home, shows, profile, addPlace, addShow, settings }
+
+const _menuEntries = [
+  (_MenuAction.home, Icons.home_outlined, '홈 · 공간'),
+  (_MenuAction.shows, Icons.music_note_outlined, '공연 둘러보기'),
+  (_MenuAction.profile, Icons.person_outline, '마이페이지'),
+  (_MenuAction.addPlace, Icons.add_business_outlined, '공간 등록 +'),
+  (_MenuAction.addShow, Icons.add_circle_outline, '공연 등록 +'),
+  (_MenuAction.settings, Icons.settings_outlined, '설정'),
+];
+
 class _HomeState extends State<Home> {
   int tab = 0;
   Store get s => widget.store;
+  Future<void> showMenu() async {
+    final action = await showModalBottomSheet<_MenuAction>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (sheet) => SafeArea(
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const ListTile(
+                title: Text(
+                  '메뉴',
+                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                ),
+              ),
+              for (final entry in _menuEntries)
+                ListTile(
+                  leading: Icon(entry.$2),
+                  title: Text(entry.$3),
+                  selected: entry.$1.index == tab,
+                  trailing: entry.$1.index == tab
+                      ? const Icon(Icons.check)
+                      : null,
+                  onTap: () => Navigator.pop(sheet, entry.$1),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (!mounted || action == null) return;
+    switch (action) {
+      case _MenuAction.home:
+      case _MenuAction.shows:
+      case _MenuAction.profile:
+        setState(() => tab = action.index);
+      case _MenuAction.addPlace:
+        await openRegistration(context, s, isPlace: true);
+      case _MenuAction.addShow:
+        await openRegistration(context, s, isPlace: false);
+      case _MenuAction.settings:
+        open(context, SettingsPage(store: s));
+    }
+  }
+
   Widget card(Widget child, {VoidCallback? tap}) => Card(
     color: Colors.white,
     margin: const EdgeInsets.only(bottom: 14),
@@ -219,23 +276,18 @@ class _HomeState extends State<Home> {
       backgroundColor: tab == 2 ? canvas : orange,
       appBar: tab == 2
           ? AppBar(
-              leading: PopupMenuButton<int>(
-                onSelected: (i) => setState(() => tab = i),
-                itemBuilder: (_) => List.generate(
-                  3,
-                  (i) => PopupMenuItem(
-                    value: i,
-                    child: Text(['홈 · 공간', '공연', '마이페이지'][i]),
-                  ),
-                ),
+              leading: IconButton(
+                tooltip: '메뉴',
+                icon: const Icon(Icons.menu),
+                onPressed: showMenu,
               ),
               title: Image.asset('assets/croc-logo.png', height: 62),
               toolbarHeight: 80,
               actions: [
                 IconButton(
-                  tooltip: '활동 내역',
+                  tooltip: '알림',
                   icon: const Icon(Icons.notifications_none),
-                  onPressed: () => open(c, TickPage(store: s)),
+                  onPressed: () => open(c, NotificationsPage(store: s)),
                 ),
                 IconButton(
                   tooltip: '설정',
@@ -261,41 +313,12 @@ class _HomeState extends State<Home> {
                   key: ValueKey(tab),
                   store: s,
                   isPlace: tab == 0,
-                  onMenu: () => showModalBottomSheet<void>(
-                    context: c,
-                    builder: (sheet) => SafeArea(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          ListTile(
-                            leading: const Icon(Icons.add_business_outlined),
-                            title: const Text('공간 등록 +'),
-                            onTap: () {
-                              Navigator.pop(sheet);
-                              openRegistration(c, s, isPlace: true);
-                            },
-                          ),
-                          ListTile(
-                            leading: const Icon(Icons.add_circle_outline),
-                            title: const Text('공연 등록 +'),
-                            onTap: () {
-                              Navigator.pop(sheet);
-                              openRegistration(c, s, isPlace: false);
-                            },
-                          ),
-                          ListTile(
-                            leading: const Icon(Icons.settings_outlined),
-                            title: const Text('설정'),
-                            onTap: () {
-                              Navigator.pop(sheet);
-                              open(c, SettingsPage(store: s));
-                            },
-                          ),
-                        ],
-                      ),
-                    ),
+                  onMenu: showMenu,
+                  onActivity: () => open(c, NotificationsPage(store: s)),
+                  onFilters: () => open(
+                    c,
+                    CatalogPage(store: s, isPlace: false, expandFilters: true),
                   ),
-                  onActivity: () => open(c, TickPage(store: s)),
                   onProfile: () => setState(() => tab = 2),
                   onSeeAll: () =>
                       open(c, CatalogPage(store: s, isPlace: tab == 0)),
@@ -306,7 +329,8 @@ class _HomeState extends State<Home> {
                     CatalogPage(
                       store: s,
                       isPlace: false,
-                      initialGenre: g == 'Calm' ? 'Lo-fi' : g,
+                      initialFilter: g == 'Calm' ? '잔잔한' : g,
+                      expandFilters: g == '전체',
                     ),
                   ),
                 ),
@@ -413,12 +437,14 @@ class _HomeState extends State<Home> {
 class CatalogPage extends StatefulWidget {
   final Store store;
   final bool isPlace;
-  final String initialGenre;
+  final String initialFilter;
+  final bool expandFilters;
   const CatalogPage({
     super.key,
     required this.store,
     required this.isPlace,
-    this.initialGenre = '전체',
+    this.initialFilter = '전체',
+    this.expandFilters = false,
   });
   @override
   State<CatalogPage> createState() => _CatalogPageState();
@@ -426,6 +452,35 @@ class CatalogPage extends StatefulWidget {
 
 class _CatalogPageState extends State<CatalogPage> {
   String query = '';
+  late String filter = widget.initialFilter;
+  String? region;
+  static const filters = [
+    '전체',
+    '잔잔한',
+    '신나는',
+    '나만 아는',
+    'Music',
+    'Band',
+    'Lo-fi',
+    'Jazz',
+  ];
+
+  bool matchesShow(Record show, String address) {
+    if (region != null && !address.contains(region!)) return false;
+    final name = '${show['title']} ${show['artists']}'.toLowerCase();
+    final genre = show['genre'];
+    return switch (filter) {
+      '전체' || '내 주변' => true,
+      '잔잔한' =>
+        genre == 'Lo-fi' || name.contains(RegExp(r'어쿠스틱|언플러그드|포크|피아노|듀오')),
+      '신나는' =>
+        name.contains(RegExp(r'스윙|페스티벌|fest|디스코')) ||
+            genre == 'Band' && !name.contains(RegExp(r'어쿠스틱|언플러그드')),
+      '나만 아는' => name.contains(RegExp(r'인디|indie|싱어송라이터|동네|로컬')),
+      _ => genre == filter,
+    };
+  }
+
   @override
   Widget build(BuildContext context) => ListenableBuilder(
     listenable: widget.store,
@@ -434,13 +489,13 @@ class _CatalogPageState extends State<CatalogPage> {
       final items = (places ? widget.store.places : widget.store.shows).where((
         item,
       ) {
+        final place = places ? item : widget.store.placeFor(item);
+        final address = place['address'] as String;
         final text = places
-            ? '${item['name']} ${item['address']}'
-            : '${item['title']} ${item['artists']} ${widget.store.placeFor(item)['name']} ${widget.store.placeFor(item)['address']}';
-        return text.toLowerCase().contains(query.toLowerCase()) &&
-            (places ||
-                widget.initialGenre == '전체' ||
-                item['genre'] == widget.initialGenre);
+            ? '${item['name']} $address'
+            : '${item['title']} ${item['artists']} ${place['name']} $address';
+        return text.toLowerCase().contains(query.trim().toLowerCase()) &&
+            (places || matchesShow(item, address));
       }).toList();
       return Scaffold(
         appBar: AppBar(
@@ -466,8 +521,76 @@ class _CatalogPageState extends State<CatalogPage> {
                 onChanged: (value) => setState(() => query = value),
               ),
             ),
+            if (!places && MediaQuery.viewInsetsOf(context).bottom == 0)
+              ExpansionTile(
+                key: const PageStorageKey('catalog-filters'),
+                initiallyExpanded:
+                    widget.expandFilters || widget.initialFilter == '내 주변',
+                title: Text(filter == '전체' ? '공연 필터' : '공연 필터 · $filter'),
+                subtitle: Text(
+                  region ??
+                      (filter == '내 주변'
+                          ? '공연을 볼 지역을 선택해 주세요'
+                          : '${items.length}개 공연'),
+                ),
+                childrenPadding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+                children: [
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        for (final label in filters)
+                          Padding(
+                            padding: const EdgeInsets.only(right: 8),
+                            child: ChoiceChip(
+                              label: Text(label),
+                              selected:
+                                  filter == label ||
+                                  label == '전체' && filter == '내 주변',
+                              onSelected: (_) => setState(() => filter = label),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  DropdownButton<String>(
+                    value: region ?? '전국',
+                    isExpanded: true,
+                    items: [
+                      for (final area in [
+                        '전국',
+                        '서울',
+                        '경기',
+                        '인천',
+                        '강원',
+                        '충북',
+                        '충남',
+                        '세종',
+                        '대전',
+                        '대구',
+                        '부산',
+                        '광주',
+                        '울산',
+                        '경북',
+                        '경남',
+                        '전북',
+                        '전남',
+                        '제주',
+                      ])
+                        DropdownMenuItem(
+                          value: area,
+                          child: Text(area == '전국' ? '지역 선택 · 전국' : area),
+                        ),
+                    ],
+                    onChanged: (area) =>
+                        setState(() => region = area == '전국' ? null : area),
+                  ),
+                ],
+              ),
             Expanded(
-              child: items.isEmpty
+              child: !places && filter == '내 주변' && region == null
+                  ? const Center(child: Text('위에서 지역을 선택하면 해당 지역의 공연이 표시돼요.'))
+                  : items.isEmpty
                   ? const Center(child: Text('검색 결과가 없습니다.'))
                   : ListView.builder(
                       padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -515,7 +638,7 @@ class _CatalogPageState extends State<CatalogPage> {
                                         Text(
                                           places
                                               ? '${item['address']}\n${placeCapacity(item)}'
-                                              : dateLabel(item['start']),
+                                              : '${dateLabel(item['start'])} · ${item['genre']}\n${widget.store.placeFor(item)['address']}',
                                         ),
                                       ],
                                     ),
@@ -532,6 +655,61 @@ class _CatalogPageState extends State<CatalogPage> {
         ),
       );
     },
+  );
+}
+
+class NotificationsPage extends StatelessWidget {
+  final Store store;
+  const NotificationsPage({super.key, required this.store});
+
+  @override
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: store,
+    builder: (context, _) => Scaffold(
+      appBar: AppBar(title: const Text('알림')),
+      body: store.notifications.isEmpty
+          ? const Center(child: Text('아직 받은 알림이 없어요.'))
+          : ListView.builder(
+              itemCount: store.notifications.length,
+              itemBuilder: (context, index) {
+                final notification = store.notifications[index];
+                final show = store.shows
+                    .where((s) => s['id'] == notification['showId'])
+                    .firstOrNull;
+                final unread = notification['read'] != true;
+                return ListTile(
+                  leading: Icon(
+                    unread
+                        ? Icons.notifications_active_outlined
+                        : Icons.notifications_none,
+                  ),
+                  title: Text(
+                    notification['title'],
+                    style: TextStyle(
+                      fontWeight: unread ? FontWeight.bold : FontWeight.normal,
+                    ),
+                  ),
+                  subtitle: Text(
+                    '${show?['title'] ?? '공연'} · ${dateLabel(notification['at'])}',
+                  ),
+                  trailing: unread ? const Text('읽지 않음') : null,
+                  onTap: () async {
+                    try {
+                      await store.readNotification(notification);
+                      if (context.mounted && show != null) {
+                        open(
+                          context,
+                          Detail(store: store, item: show, isPlace: false),
+                        );
+                      }
+                    } catch (e) {
+                      if (context.mounted) error(context, e);
+                    }
+                  },
+                );
+              },
+            ),
+    ),
   );
 }
 
