@@ -98,4 +98,38 @@ void main() {
       false,
     );
   });
+
+  test('정원 초과와 목표 달성 후 마감된 공연 참여를 차단', () async {
+    final show = s.shows.first;
+    show['funded'] = show['audience'] * show['price'];
+    expect(s.participationBlockReason(show), '정원이 모두 찼습니다.');
+    await expectLater(s.join(show), throwsStateError);
+    expect(s.tickets, isEmpty);
+    show['funded'] = show['goal'];
+    show['audience'] += 10;
+    show['deadline'] = DateTime.now()
+        .subtract(const Duration(minutes: 1))
+        .toIso8601String();
+    expect(s.status(show), '공연 확정');
+    expect(s.participationBlockReason(show), '모집이 마감되었습니다.');
+    await expectLater(s.join(show), throwsStateError);
+  });
+
+  test('티켓 수입으로 달성할 수 없는 목표는 등록하지 않는다', () async {
+    final show = s.shows.first;
+    final start = DateTime.parse(show['end']).add(const Duration(days: 1));
+    final before = s.shows.length;
+    await expectLater(
+      s.addShow({
+        ...show,
+        'start': start.toIso8601String(),
+        'end': start.add(const Duration(hours: 1)).toIso8601String(),
+        'price': 10000,
+        'audience': 2,
+        'goal': 30000,
+      }),
+      throwsStateError,
+    );
+    expect(s.shows.length, before);
+  });
 }

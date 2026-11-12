@@ -159,6 +159,26 @@ class Store extends ChangeNotifier {
       places.firstWhere((p) => p['id'] == show['placeId']);
   double progress(Record s) => (s['funded'] as num) / (s['goal'] as num);
   bool joined(Record s) => tickets.any((t) => t['showId'] == s['id']);
+  String? participationBlockReason(Record show) {
+    if (joined(show)) return '이미 참여한 공연입니다.';
+    final state = status(show);
+    if (state == '공간 승인 대기') return '공간 승인 후 참여할 수 있어요.';
+    if (state == '취소') return '취소된 공연입니다.';
+    if (!DateTime.parse(show['start']).isAfter(DateTime.now())) {
+      return '이미 시작되었거나 종료된 공연입니다.';
+    }
+    if (!DateTime.parse(
+      show['deadline'] ?? show['start'],
+    ).isAfter(DateTime.now())) {
+      return '모집이 마감되었습니다.';
+    }
+    if (!['펀딩 중', '공연 확정'].contains(state)) return '현재 참여할 수 없는 공연입니다.';
+    if (show['funded'] + show['price'] > show['audience'] * show['price']) {
+      return '정원이 모두 찼습니다.';
+    }
+    return null;
+  }
+
   bool conflicts(String place, DateTime start, DateTime end) => shows.any(
     (s) =>
         status(s) != '취소' &&
@@ -167,13 +187,8 @@ class Store extends ChangeNotifier {
         end.isAfter(DateTime.parse(s['start'])),
   );
   Future<void> join(Record s) async {
-    if (status(s) != '펀딩 중' && status(s) != '공연 확정') {
-      throw StateError('현재 참여할 수 없는 공연입니다.');
-    }
-    if (joined(s)) throw StateError('이미 참여한 공연입니다.');
-    if (DateTime.parse(s['start']).isBefore(DateTime.now())) {
-      throw StateError('시작된 공연에는 참여할 수 없습니다.');
-    }
+    final reason = participationBlockReason(s);
+    if (reason != null) throw StateError(reason);
     s['funded'] += s['price'];
     tickets.insert(0, {
       'id': id(),
@@ -184,12 +199,14 @@ class Store extends ChangeNotifier {
     await save();
   }
 
-  Future<void> addPlace(Record p) async {
-    places.insert(0, {...p, 'id': id(), 'mine': true});
+  Future<Record> addPlace(Record p) async {
+    final created = {...p, 'id': id(), 'mine': true};
+    places.insert(0, created);
     await save();
+    return created;
   }
 
-  Future<void> addShow(Record s) async {
+  Future<Record> addShow(Record s) async {
     final start = DateTime.parse(s['start']), end = DateTime.parse(s['end']);
     if (!end.isAfter(start)) throw StateError('종료 시간은 시작 시간 이후여야 합니다.');
     if (conflicts(s['placeId'], start, end)) {
@@ -204,15 +221,20 @@ class Store extends ChangeNotifier {
     if (tier.audience != null && s['audience'] > tier.audience) {
       throw StateError('${tier.name}의 관객 한도는 ${tier.audience}명입니다.');
     }
-    shows.insert(0, {
+    if (s['goal'] > s['price'] * s['audience']) {
+      throw StateError('펀딩 목표는 티켓 가격 × 목표 관객 수 이하여야 합니다.');
+    }
+    final created = <String, dynamic>{
       ...s,
       'demo': s['demo'] == true || placeFor(s)['demo'] == true,
       'id': id(),
       'mine': true,
       'funded': 0,
       'approved': false,
-    });
+    };
+    shows.insert(0, created);
     await save();
+    return created;
   }
 
   Future<void> reset() async {

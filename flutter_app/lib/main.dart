@@ -65,6 +65,24 @@ String dateLabel(String v) {
 
 void open(BuildContext c, Widget p) =>
     Navigator.push(c, MaterialPageRoute<void>(builder: (_) => p));
+Future<void> openRegistration(
+  BuildContext context,
+  Store store, {
+  required bool isPlace,
+  String? placeId,
+}) async {
+  final created = await Navigator.push<Record>(
+    context,
+    MaterialPageRoute(
+      builder: (_) =>
+          Registration(store: store, isPlace: isPlace, placeId: placeId),
+    ),
+  );
+  if (created != null && context.mounted) {
+    open(context, Detail(store: store, item: created, isPlace: isPlace));
+  }
+}
+
 void error(BuildContext c, Object e) =>
     ScaffoldMessenger.of(c).showSnackBar(SnackBar(content: Text('$e')));
 
@@ -254,7 +272,7 @@ class _HomeState extends State<Home> {
                             title: const Text('공간 등록 +'),
                             onTap: () {
                               Navigator.pop(sheet);
-                              open(c, Registration(store: s, isPlace: true));
+                              openRegistration(c, s, isPlace: true);
                             },
                           ),
                           ListTile(
@@ -262,7 +280,7 @@ class _HomeState extends State<Home> {
                             title: const Text('공연 등록 +'),
                             onTap: () {
                               Navigator.pop(sheet);
-                              open(c, Registration(store: s, isPlace: false));
+                              openRegistration(c, s, isPlace: false);
                             },
                           ),
                           ListTile(
@@ -363,7 +381,7 @@ class _HomeState extends State<Home> {
     heading(
       'My space',
       '공간 등록 +',
-      () => open(context, Registration(store: s, isPlace: true)),
+      () => openRegistration(context, s, isPlace: true),
     ),
     ...s.places
         .where((p) => p['mine'] == true)
@@ -376,7 +394,7 @@ class _HomeState extends State<Home> {
     heading(
       'My shows',
       '공연 등록 +',
-      () => open(context, Registration(store: s, isPlace: false)),
+      () => openRegistration(context, s, isPlace: false),
     ),
     ...s.shows
         .where((p) => p['mine'] == true)
@@ -431,10 +449,8 @@ class _CatalogPageState extends State<CatalogPage> {
             IconButton(
               tooltip: places ? '공간 등록 +' : '공연 등록 +',
               icon: const Icon(Icons.add),
-              onPressed: () => open(
-                context,
-                Registration(store: widget.store, isPlace: places),
-              ),
+              onPressed: () =>
+                  openRegistration(context, widget.store, isPlace: places),
             ),
           ],
         ),
@@ -576,13 +592,11 @@ class Detail extends StatelessWidget {
                 Text('보유 장비\n${item['equipment']}'),
                 const SizedBox(height: 20),
                 FilledButton(
-                  onPressed: () => open(
+                  onPressed: () => openRegistration(
                     c,
-                    Registration(
-                      store: store,
-                      isPlace: false,
-                      placeId: item['id'],
-                    ),
+                    store,
+                    isPlace: false,
+                    placeId: item['id'],
                   ),
                   child: Text(
                     item['candidate'] == true
@@ -611,9 +625,7 @@ class Detail extends StatelessWidget {
                 const SizedBox(height: 20),
                 const Text('시연용 펀딩입니다. 실제 결제는 발생하지 않습니다.'),
                 FilledButton(
-                  onPressed:
-                      store.joined(item) ||
-                          !['펀딩 중', '공연 확정'].contains(store.status(item))
+                  onPressed: store.participationBlockReason(item) != null
                       ? null
                       : () async {
                           try {
@@ -625,10 +637,17 @@ class Detail extends StatelessWidget {
                   child: Text(
                     store.joined(item)
                         ? '참여 완료 · 마이페이지에서 티켓 확인'
-                        : '펀딩 참여 · ${money(item['price'])}',
+                        : store.participationBlockReason(item) ??
+                              '펀딩 참여 · ${money(item['price'])}',
                   ),
                 ),
                 const SizedBox(height: 20),
+                if (store.joined(item))
+                  OutlinedButton.icon(
+                    onPressed: () => open(c, TicketsPage(store: store)),
+                    icon: const Icon(Icons.confirmation_number_outlined),
+                    label: const Text('내 티켓 보기'),
+                  ),
                 if (item['mine'] == true)
                   ShowOperations(store: store, show: item),
               ],
@@ -771,24 +790,55 @@ class _RegistrationState extends State<Registration> {
   }
 
   String val(String id) => fields[id]?.text.trim() ?? '';
-  Widget field(String id, String label, {bool number = false, int lines = 1}) =>
-      Padding(
-        padding: const EdgeInsets.only(bottom: 16),
-        child: TextFormField(
-          key: ValueKey(id),
-          controller: fields.putIfAbsent(id, () => TextEditingController()),
-          decoration: InputDecoration(labelText: label),
-          maxLines: lines,
-          keyboardType: number ? TextInputType.number : TextInputType.multiline,
-          validator: (v) {
-            if (v == null || v.trim().isEmpty) return '필수 항목입니다';
-            if (number && (int.tryParse(v) == null || int.parse(v) <= 0)) {
-              return '0보다 큰 정수를 입력하세요';
+  Widget field(
+    String id,
+    String label, {
+    bool number = false,
+    int lines = 1,
+  }) => Padding(
+    padding: const EdgeInsets.only(bottom: 16),
+    child: TextFormField(
+      key: ValueKey(id),
+      controller: fields.putIfAbsent(id, () => TextEditingController()),
+      decoration: InputDecoration(labelText: label),
+      maxLines: lines,
+      keyboardType: number ? TextInputType.number : TextInputType.multiline,
+      validator: (v) {
+        if (v == null || v.trim().isEmpty) return '필수 항목입니다';
+        if (number && (int.tryParse(v) == null || int.parse(v) <= 0)) {
+          return '0보다 큰 정수를 입력하세요';
+        }
+        if (number && !widget.isPlace) {
+          final value = int.parse(v);
+          if (id == 'price' &&
+              widget.store.tier.price != null &&
+              value > widget.store.tier.price!) {
+            return '현재 등급은 최대 ${money(widget.store.tier.price)}까지 설정할 수 있어요';
+          }
+          if (id == 'capacity') {
+            final selected = widget.store.places.firstWhere(
+              (p) => p['id'] == place,
+            );
+            if (value > selected['capacity']) {
+              return '선택한 공간은 최대 ${selected['capacity']}명입니다';
             }
-            return null;
-          },
-        ),
-      );
+            if (widget.store.tier.audience != null &&
+                value > widget.store.tier.audience!) {
+              return '현재 등급은 최대 ${widget.store.tier.audience}명입니다';
+            }
+          }
+          if (id == 'goal') {
+            final price = int.tryParse(val('price'));
+            final audience = int.tryParse(val('capacity'));
+            if (price != null && audience != null && value > price * audience) {
+              return '티켓 가격 × 목표 관객 수인 ${money(price * audience)} 이하여야 합니다';
+            }
+          }
+        }
+        return null;
+      },
+    ),
+  );
   Future<void> pick() async {
     try {
       final x = await ImagePicker().pickImage(
@@ -843,8 +893,9 @@ class _RegistrationState extends State<Registration> {
     setState(() => busy = true);
     try {
       final s = widget.store;
+      late final Record created;
       if (widget.isPlace) {
-        await s.addPlace({
+        created = await s.addPlace({
           'name': val('name'),
           'address': val('address'),
           'description': val('description'),
@@ -859,7 +910,7 @@ class _RegistrationState extends State<Registration> {
           throw StateError('미래의 공연 시간을 선택하세요.');
         }
         final p = s.places.firstWhere((p) => p['id'] == place);
-        await s.addShow({
+        created = await s.addShow({
           'title': val('name'),
           'placeId': place,
           'description': val('description'),
@@ -873,7 +924,7 @@ class _RegistrationState extends State<Registration> {
           'image': image.isEmpty ? p['image'] : image,
         });
       }
-      if (mounted) Navigator.pop(context);
+      if (mounted) Navigator.pop(context, created);
     } catch (e) {
       if (mounted) error(context, e);
     } finally {
@@ -915,261 +966,279 @@ class _RegistrationState extends State<Registration> {
             '준비와 철수 시간을 포함해 공간을 확보해 주세요.',
             '금액은 원 단위, 관객 수는 명 단위로 입력해요.',
           ];
-    return Scaffold(
-      backgroundColor: canvas,
-      appBar: AppBar(
-        title: Text(p ? '공간 등록' : '새 공연 등록'),
+    return PopScope(
+      canPop: step == 0 && !busy,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop && !busy && step > 0) {
+          FocusScope.of(context).unfocus();
+          setState(() => step--);
+          scroll.jumpTo(0);
+        }
+      },
+      child: Scaffold(
         backgroundColor: canvas,
-      ),
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 760),
-          child: Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(24, 12, 24, 0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '${step + 1} / 3단계',
-                      style: const TextStyle(
-                        color: orange,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    LinearProgressIndicator(
-                      value: (step + 1) / 3,
-                      minHeight: 5,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    const SizedBox(height: 24),
-                    Text(
-                      titles[step],
-                      style: const TextStyle(
-                        fontSize: 28,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      hints[step],
-                      style: const TextStyle(
-                        color: Colors.black54,
-                        height: 1.5,
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                  ],
-                ),
-              ),
-              Expanded(
-                child: Form(
-                  key: key,
-                  child: ListView(
-                    controller: scroll,
-                    padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+        appBar: AppBar(
+          title: Text(p ? '공간 등록' : '새 공연 등록'),
+          backgroundColor: canvas,
+        ),
+        body: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 760),
+            child: Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 12, 24, 0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      if (step == 0) ...[
-                        field('name', p ? '공간 이름' : '공연 제목'),
-                        if (p) field('address', '상세 주소'),
-                        field('description', p ? '공간 소개' : '공연 소개', lines: 4),
-                        if (!p) field('artists', '출연자'),
-                      ],
-                      if (step == 1 && p) ...[
-                        field('capacity', '최대 수용 관객 수 (명)', number: true),
-                        field('fee', '회차당 대관료 (원)', number: true),
-                        field('hours', '운영 시간 · 예: 10:00–22:00'),
-                        field('equipment', '보유 장비 · 마이크, 믹서, 조명 등', lines: 3),
-                      ],
-                      if (step == 1 && !p) ...[
-                        DropdownButtonFormField<String>(
-                          initialValue: place,
-                          isExpanded: true,
-                          decoration: const InputDecoration(labelText: '공연 공간'),
-                          items: widget.store.places
-                              .map(
-                                (p) => DropdownMenuItem<String>(
-                                  value: p['id'],
-                                  child: Text(
-                                    p['name'],
-                                    overflow: TextOverflow.ellipsis,
+                      Text(
+                        '${step + 1} / 3단계',
+                        style: const TextStyle(
+                          color: orange,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      LinearProgressIndicator(
+                        value: (step + 1) / 3,
+                        minHeight: 5,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      const SizedBox(height: 24),
+                      Text(
+                        titles[step],
+                        style: const TextStyle(
+                          fontSize: 28,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        hints[step],
+                        style: const TextStyle(
+                          color: Colors.black54,
+                          height: 1.5,
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: Form(
+                    key: key,
+                    child: ListView(
+                      controller: scroll,
+                      padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+                      children: [
+                        if (step == 0) ...[
+                          field('name', p ? '공간 이름' : '공연 제목'),
+                          if (p) field('address', '상세 주소'),
+                          field('description', p ? '공간 소개' : '공연 소개', lines: 4),
+                          if (!p) field('artists', '출연자'),
+                        ],
+                        if (step == 1 && p) ...[
+                          field('capacity', '최대 수용 관객 수 (명)', number: true),
+                          field('fee', '회차당 대관료 (원)', number: true),
+                          field('hours', '운영 시간 · 예: 10:00–22:00'),
+                          field('equipment', '보유 장비 · 마이크, 믹서, 조명 등', lines: 3),
+                        ],
+                        if (step == 1 && !p) ...[
+                          DropdownButtonFormField<String>(
+                            initialValue: place,
+                            isExpanded: true,
+                            decoration: const InputDecoration(
+                              labelText: '공연 공간',
+                            ),
+                            items: widget.store.places
+                                .map(
+                                  (p) => DropdownMenuItem<String>(
+                                    value: p['id'],
+                                    child: Text(
+                                      p['name'],
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
                                   ),
-                                ),
-                              )
-                              .toList(),
-                          onChanged: (v) => setState(() => place = v!),
-                        ),
-                        const SizedBox(height: 16),
-                        DropdownButtonFormField<String>(
-                          initialValue: genre,
-                          decoration: const InputDecoration(labelText: '장르'),
-                          items: ['Music', 'Band', 'Lo-fi', 'Jazz']
-                              .map(
-                                (g) =>
-                                    DropdownMenuItem(value: g, child: Text(g)),
-                              )
-                              .toList(),
-                          onChanged: (v) => genre = v!,
-                        ),
-                        const SizedBox(height: 16),
-                        Card(
-                          elevation: 0,
-                          color: Colors.white,
-                          child: Column(
-                            children: [
-                              ListTile(
-                                title: const Text('공연 시작'),
-                                subtitle: Text(
-                                  dateLabel(start.toIso8601String()),
-                                ),
-                                trailing: const Icon(Icons.calendar_month),
-                                onTap: () => date(false),
-                              ),
-                              const Divider(height: 1),
-                              ListTile(
-                                title: const Text('공연 종료'),
-                                subtitle: Text(
-                                  dateLabel(end.toIso8601String()),
-                                ),
-                                trailing: const Icon(Icons.schedule),
-                                onTap: () => date(true),
-                              ),
-                            ],
+                                )
+                                .toList(),
+                            onChanged: (v) => setState(() => place = v!),
                           ),
-                        ),
-                      ],
-                      if (step == 2) ...[
-                        if (!p) ...[
-                          field('price', '티켓 가격 (원)', number: true),
-                          field('capacity', '목표 관객 수 (명)', number: true),
-                          field('goal', '펀딩 목표 금액 (원)', number: true),
+                          const SizedBox(height: 16),
+                          DropdownButtonFormField<String>(
+                            initialValue: genre,
+                            decoration: const InputDecoration(labelText: '장르'),
+                            items: ['Music', 'Band', 'Lo-fi', 'Jazz']
+                                .map(
+                                  (g) => DropdownMenuItem(
+                                    value: g,
+                                    child: Text(g),
+                                  ),
+                                )
+                                .toList(),
+                            onChanged: (v) => genre = v!,
+                          ),
+                          const SizedBox(height: 16),
+                          Card(
+                            elevation: 0,
+                            color: Colors.white,
+                            child: Column(
+                              children: [
+                                ListTile(
+                                  title: const Text('공연 시작'),
+                                  subtitle: Text(
+                                    dateLabel(start.toIso8601String()),
+                                  ),
+                                  trailing: const Icon(Icons.calendar_month),
+                                  onTap: () => date(false),
+                                ),
+                                const Divider(height: 1),
+                                ListTile(
+                                  title: const Text('공연 종료'),
+                                  subtitle: Text(
+                                    dateLabel(end.toIso8601String()),
+                                  ),
+                                  trailing: const Icon(Icons.schedule),
+                                  onTap: () => date(true),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                        if (step == 2) ...[
+                          if (!p) ...[
+                            field('price', '티켓 가격 (원)', number: true),
+                            field('capacity', '목표 관객 수 (명)', number: true),
+                            field('goal', '펀딩 목표 금액 (원)', number: true),
+                            Text(
+                              '나의 등급: ${widget.store.tier.name} · 티켓 ${widget.store.tier.price == null ? '가격 제한 없음' : '최대 ${money(widget.store.tier.price)}'} · 관객 ${widget.store.tier.audience ?? '제한 없음'}',
+                              style: const TextStyle(
+                                color: Colors.black54,
+                                height: 1.5,
+                              ),
+                            ),
+                            const SizedBox(height: 20),
+                          ],
+                          Artwork(
+                            image.isEmpty
+                                ? (p
+                                      ? 'assets/place-hopyeong.png'
+                                      : widget.store.places.firstWhere(
+                                          (p) => p['id'] == place,
+                                        )['image'])
+                                : image,
+                          ),
+                          const SizedBox(height: 12),
+                          OutlinedButton.icon(
+                            onPressed: busy ? null : pick,
+                            icon: const Icon(
+                              Icons.add_photo_alternate_outlined,
+                            ),
+                            label: Text(
+                              image.isEmpty
+                                  ? (p ? '공간 사진 선택' : '공연 포스터 선택')
+                                  : '사진 변경',
+                            ),
+                          ),
+                          const SizedBox(height: 8),
                           Text(
-                            '나의 등급: ${widget.store.tier.name} · 티켓 ${widget.store.tier.price == null ? '가격 제한 없음' : '최대 ${money(widget.store.tier.price)}'} · 관객 ${widget.store.tier.audience ?? '제한 없음'}',
+                            p
+                                ? '사진을 선택하지 않으면 기본 사진을 사용해요.'
+                                : '포스터를 선택하지 않으면 공간 사진을 사용해요.',
                             style: const TextStyle(
                               color: Colors.black54,
                               height: 1.5,
                             ),
                           ),
                           const SizedBox(height: 20),
-                        ],
-                        Artwork(
-                          image.isEmpty
-                              ? (p
-                                    ? 'assets/place-hopyeong.png'
-                                    : widget.store.places.firstWhere(
-                                        (p) => p['id'] == place,
-                                      )['image'])
-                              : image,
-                        ),
-                        const SizedBox(height: 12),
-                        OutlinedButton.icon(
-                          onPressed: busy ? null : pick,
-                          icon: const Icon(Icons.add_photo_alternate_outlined),
-                          label: Text(
-                            image.isEmpty
-                                ? (p ? '공간 사진 선택' : '공연 포스터 선택')
-                                : '사진 변경',
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          p
-                              ? '사진을 선택하지 않으면 기본 사진을 사용해요.'
-                              : '포스터를 선택하지 않으면 공간 사진을 사용해요.',
-                          style: const TextStyle(
-                            color: Colors.black54,
-                            height: 1.5,
-                          ),
-                        ),
-                        const SizedBox(height: 20),
-                        Card(
-                          elevation: 0,
-                          color: Colors.white,
-                          child: Padding(
-                            padding: const EdgeInsets.all(20),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text(
-                                  '등록할 내용',
-                                  style: TextStyle(fontWeight: FontWeight.w800),
-                                ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  val('name'),
-                                  style: const TextStyle(
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.w700,
+                          Card(
+                            elevation: 0,
+                            color: Colors.white,
+                            child: Padding(
+                              padding: const EdgeInsets.all(20),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    '등록할 내용',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w800,
+                                    ),
                                   ),
-                                ),
-                                const SizedBox(height: 6),
-                                Text(
-                                  p
-                                      ? val('address')
-                                      : dateLabel(start.toIso8601String()),
-                                ),
-                                const SizedBox(height: 6),
-                                Text(
-                                  p
-                                      ? '최대 ${val('capacity')}명 · 대관료 ${val('fee')}원'
-                                      : widget.store.places.firstWhere(
-                                          (p) => p['id'] == place,
-                                        )['name'],
-                                ),
-                              ],
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    val('name'),
+                                    style: const TextStyle(
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    p
+                                        ? val('address')
+                                        : dateLabel(start.toIso8601String()),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    p
+                                        ? '최대 ${val('capacity')}명 · 대관료 ${val('fee')}원'
+                                        : widget.store.places.firstWhere(
+                                            (p) => p['id'] == place,
+                                          )['name'],
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+                SafeArea(
+                  top: false,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 12, 24, 16),
+                    child: Row(
+                      children: [
+                        if (step > 0) ...[
+                          OutlinedButton(
+                            onPressed: busy
+                                ? null
+                                : () {
+                                    FocusScope.of(c).unfocus();
+                                    setState(() => step--);
+                                    scroll.jumpTo(0);
+                                  },
+                            child: const Text('이전'),
+                          ),
+                          const SizedBox(width: 12),
+                        ],
+                        Expanded(
+                          child: FilledButton(
+                            onPressed: busy
+                                ? null
+                                : step < 2
+                                ? next
+                                : submit,
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              child: Text(
+                                busy
+                                    ? '저장 중…'
+                                    : step < 2
+                                    ? '다음'
+                                    : '등록하기',
+                              ),
                             ),
                           ),
                         ),
                       ],
-                    ],
+                    ),
                   ),
                 ),
-              ),
-              SafeArea(
-                top: false,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(24, 12, 24, 16),
-                  child: Row(
-                    children: [
-                      if (step > 0) ...[
-                        OutlinedButton(
-                          onPressed: busy
-                              ? null
-                              : () {
-                                  FocusScope.of(c).unfocus();
-                                  setState(() => step--);
-                                  scroll.jumpTo(0);
-                                },
-                          child: const Text('이전'),
-                        ),
-                        const SizedBox(width: 12),
-                      ],
-                      Expanded(
-                        child: FilledButton(
-                          onPressed: busy
-                              ? null
-                              : step < 2
-                              ? next
-                              : submit,
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            child: Text(
-                              busy
-                                  ? '저장 중…'
-                                  : step < 2
-                                  ? '다음'
-                                  : '등록하기',
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -1181,23 +1250,28 @@ class TicketsPage extends StatelessWidget {
   final Store store;
   const TicketsPage({super.key, required this.store});
   @override
-  Widget build(BuildContext c) => Scaffold(
-    appBar: AppBar(title: const Text('내 티켓')),
-    body: store.tickets.isEmpty
-        ? const Center(child: Text('아직 참여한 공연이 없습니다.'))
-        : ListView(
-            children: store.tickets.map((t) {
-              final show = store.shows.firstWhere(
-                (p) => p['id'] == t['showId'],
-              );
-              return ListTile(
-                title: Text(show['title']),
-                subtitle: Text('${dateLabel(show['start'])}\n참여 번호 ${t['id']}'),
-                onTap: () =>
-                    open(c, Detail(store: store, item: show, isPlace: false)),
-              );
-            }).toList(),
-          ),
+  Widget build(BuildContext c) => ListenableBuilder(
+    listenable: store,
+    builder: (c, _) => Scaffold(
+      appBar: AppBar(title: const Text('내 티켓')),
+      body: store.tickets.isEmpty
+          ? const Center(child: Text('아직 참여한 공연이 없습니다.'))
+          : ListView(
+              children: store.tickets.map((t) {
+                final show = store.shows.firstWhere(
+                  (p) => p['id'] == t['showId'],
+                );
+                return ListTile(
+                  title: Text(show['title']),
+                  subtitle: Text(
+                    '${dateLabel(show['start'])}\n참여 번호 ${t['id']}\n${t['refunded'] == true ? '참여 취소됨' : store.status(show)}',
+                  ),
+                  onTap: () =>
+                      open(c, Detail(store: store, item: show, isPlace: false)),
+                );
+              }).toList(),
+            ),
+    ),
   );
 }
 

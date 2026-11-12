@@ -172,7 +172,7 @@ class _FigmaBrowseState extends State<FigmaBrowse> {
   Widget _svg(String name, double x, double y, double w, double h) =>
       _at(x, y, w, h, _asset(_page, name));
 
-  Widget _seeAll(double x, double y) => _at(
+  Widget _seeAll(double x, double y, {VoidCallback? onTap, Key? key}) => _at(
     x - 3,
     y - 8,
     47,
@@ -197,7 +197,8 @@ class _FigmaBrowseState extends State<FigmaBrowse> {
           _label('see all', 12, 8, 25, 8, color: Colors.black),
         ],
       ),
-      widget.onSeeAll,
+      onTap ?? widget.onSeeAll,
+      key: key,
       label: '전체 보기',
     ),
   );
@@ -438,7 +439,12 @@ class _FigmaBrowseState extends State<FigmaBrowse> {
       ),
     ),
     _label('Categories', 27, 718, 127, 20, weight: FontWeight.w700),
-    _seeAll(336, 722),
+    _seeAll(
+      336,
+      722,
+      onTap: () => widget.onCategory('전체'),
+      key: const ValueKey('all-categories'),
+    ),
     for (final category in <(double, double, String)>[
       (26, 40, 'Calm'),
       (125, 139, 'Band'),

@@ -49,6 +49,9 @@ void main() {
       await press(find.text('등록하기'));
       final place = store.places.firstWhere((p) => p['name'] == spaceName);
       expect(place['equipment'], contains('마이크'));
+      expect(find.text('공간 상세'), findsOneWidget);
+      await tester.pageBack();
+      await tester.pumpAndSettle();
 
       await tester.enterText(find.byType(TextField).first, spaceName);
       await tester.pumpAndSettle();
@@ -71,12 +74,7 @@ void main() {
       final show = store.shows.firstWhere((s) => s['title'] == showName);
       expect(store.status(show), '공간 승인 대기');
       expect(show['image'], place['image']);
-      await tester.pageBack();
-      await tester.pumpAndSettle();
-      await press(find.byKey(const ValueKey('tab-공연')));
-      await tester.enterText(find.byType(TextField).first, showName);
-      await tester.pumpAndSettle();
-      await press(find.byKey(ValueKey('search-result-${show['id']}')));
+      expect(find.text('공연 상세'), findsOneWidget);
       await tester.scrollUntilVisible(
         find.text('공간 제공자 승인 처리'),
         200,
@@ -90,6 +88,9 @@ void main() {
       expect(store.tick, initialTick);
       expect(find.textContaining('펀딩 50%'), findsOneWidget);
       expect(find.text('참여 완료 · 마이페이지에서 티켓 확인'), findsOneWidget);
+      await press(find.text('내 티켓 보기'));
+      expect(find.text('내 티켓'), findsOneWidget);
+      expect(find.text(showName), findsOneWidget);
       final loaded = Store(prefs);
       expect(
         loaded.shows.firstWhere((s) => s['id'] == show['id'])['funded'],

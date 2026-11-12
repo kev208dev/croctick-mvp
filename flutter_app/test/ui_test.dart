@@ -71,12 +71,7 @@ void main() {
         home: Builder(
           builder: (context) => Scaffold(
             body: TextButton(
-              onPressed: () => Navigator.push(
-                context,
-                MaterialPageRoute<void>(
-                  builder: (_) => Registration(store: store, isPlace: true),
-                ),
-              ),
+              onPressed: () => openRegistration(context, store, isPlace: true),
               child: const Text('시작'),
             ),
           ),
@@ -103,7 +98,7 @@ void main() {
     await fill('fee', '50000');
     await fill('hours', '10:00–22:00');
     await fill('equipment', '마이크 2대, 믹서');
-    await tester.tap(find.text('이전'));
+    await tester.pageBack();
     await tester.pumpAndSettle();
     expect(find.text('테스트 스테이지'), findsOneWidget);
     await tester.tap(find.text('다음'));
@@ -113,10 +108,44 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('등록하기'));
     await tester.pumpAndSettle();
-    expect(find.text('시작'), findsOneWidget);
+    expect(find.text('공간 상세'), findsOneWidget);
     expect(store.places.first['name'], '테스트 스테이지');
     expect(store.places.first['capacity'], 40);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('홈 Categories 전체 보기는 공연 목록으로 이동', (tester) async {
+    await tester.pumpWidget(CrocApp(store: store));
+    await tester.pumpAndSettle();
+    final all = find.byKey(const ValueKey('all-categories'));
+    await tester.ensureVisible(all);
+    await tester.tap(all);
+    await tester.pumpAndSettle();
+    expect(find.text('모든 공연'), findsOneWidget);
+    expect(find.text('모든 공간'), findsNothing);
+  });
+
+  testWidgets('참여 후 티켓 바로가기와 취소 상태 표시', (tester) async {
+    final show = store.shows.first;
+    await store.join(show);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Detail(store: store, item: show, isPlace: false),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('내 티켓 보기'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.text('내 티켓 보기'));
+    await tester.pumpAndSettle();
+    expect(find.text('내 티켓'), findsOneWidget);
+    expect(find.text(show['title']), findsOneWidget);
+    await store.cancel(show);
+    await tester.pumpAndSettle();
+    expect(find.textContaining('참여 취소됨'), findsOneWidget);
   });
 
   testWidgets('후보 공간 검색과 상세의 원문·미확인 조건을 표시', (tester) async {
@@ -139,5 +168,33 @@ void main() {
     expect(find.text(place['sourceUrl']), findsOneWidget);
     expect(find.text('공연 전 확인할 조건'), findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('공연 금액·관객·목표 오류는 입력란에서 안내', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(home: Registration(store: store, isPlace: false)),
+    );
+    Future<void> fill(String id, String value) async {
+      final field = find.byKey(ValueKey(id));
+      await tester.ensureVisible(field);
+      await tester.enterText(field, value);
+    }
+
+    await fill('name', '입력 검증 공연');
+    await fill('description', '검증 공연 소개');
+    await fill('artists', '검증 듀오');
+    await tester.tap(find.text('다음'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('다음'));
+    await tester.pumpAndSettle();
+    await fill('price', '16000');
+    await fill('capacity', '1000');
+    await fill('goal', '20000000');
+    await tester.tap(find.text('등록하기'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('현재 등급은 최대 15,000원'), findsOneWidget);
+    expect(find.textContaining('선택한 공간은 최대'), findsOneWidget);
+    expect(find.textContaining('티켓 가격 × 목표 관객 수인'), findsOneWidget);
+    expect(store.shows.where((s) => s['mine'] == true), isEmpty);
   });
 }
